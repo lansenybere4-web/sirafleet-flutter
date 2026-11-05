@@ -7,10 +7,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
+import '../../core/constants.dart';
 import '../../models/message_signalement_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/chauffeur_service.dart';
+import '../../services/push_notification_service.dart';
 import '../../services/signalement_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AlertesScreen extends StatefulWidget {
   final Map<String, dynamic>? mission;
@@ -95,23 +98,46 @@ class _AlertesScreenState extends State<AlertesScreen> {
   String truck = 'Camion';
   String missionStatus = '';
 
-  // ================================================================
-  // INIT
-  // ================================================================
-
+// ================================================================
+// INIT
+// ================================================================
   @override
   void initState() {
     super.initState();
+    PushNotificationService.instance.clearBadge();
 
+    // 1. Écoute des changements d'état du lecteur
     audioPlayer.onPlayerStateChanged.listen((state) {
       if (!mounted) return;
       setState(() => isPlayingAudio = state == PlayerState.playing);
     });
 
+    // 2. Configuration explicite du routage vers le HAUT-PARLEUR EXTERNE
+    audioPlayer.setAudioContext(
+      AudioContext(
+        android: const AudioContextAndroid(
+          isSpeakerphoneOn: true, // Forcer le haut-parleur externe
+          stayAwake: false,
+          contentType: AndroidContentType.music,
+          usageType: AndroidUsageType.media,
+          audioFocus: AndroidAudioFocus.gain,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playback, // Contourne le mode silencieux/vibreur
+          options: {
+            AVAudioSessionOptions.defaultToSpeaker,
+            AVAudioSessionOptions.mixWithOthers,
+          },
+        ),
+      ),
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadContext();
     });
   }
+
+
 
   // ================================================================
   // CHARGER LE CONTEXTE (chauffeur / mission / camion)
@@ -970,7 +996,7 @@ class _AlertesScreenState extends State<AlertesScreen> {
     );
   }
 
-  Future<void> _toggleAudio(String? url) async {
+ /* Future<void> _toggleAudio(String? url) async {
     if (url == null) return;
 
     try {
@@ -982,6 +1008,173 @@ class _AlertesScreenState extends State<AlertesScreen> {
       await audioPlayer.play(UrlSource(url));
     } catch (e) {
       _showError('Impossible de lire le message vocal.');
+    }
+  }*/
+
+ /* Future<void> _toggleAudio(String? url) async {
+    if (url == null) return;
+
+    try {
+      if (isPlayingAudio && playingAudioUrl == url) {
+        await audioPlayer.pause();
+        return;
+      }
+      playingAudioUrl = url;
+
+      await audioPlayer.setVolume(1.0); // AJOUTÉ — au cas où le volume interne serait à 0
+      await audioPlayer.play(UrlSource(url));
+      //await audioPlayer.play(UrlSource('https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav'));
+
+      // AJOUTÉ — pour vérifier que le lecteur détecte bien un fichier valide
+      audioPlayer.onDurationChanged.listen((d) {
+        debugPrint('DURÉE DÉTECTÉE PAR LE PLAYER : $d');
+      });
+    } catch (e) {
+      debugPrint('ERREUR LECTURE AUDIO : $e');
+      _showError('Impossible de lire le message vocal.');
+    }
+  }*/
+
+  /*Future<void> _toggleAudio(String? url) async {
+    if (url == null || url.isEmpty) return;
+
+    try {
+      // Si l'audio est déjà en cours de lecture -> Mise en pause
+      if (isPlayingAudio && playingAudioUrl == url) {
+        await audioPlayer.pause();
+        setState(() => isPlayingAudio = false);
+        return;
+      }
+
+      // Si le même audio est en pause -> Reprise
+      if (!isPlayingAudio && playingAudioUrl == url && audioPlayer.state == PlayerState.paused) {
+        await audioPlayer.resume();
+        setState(() => isPlayingAudio = true);
+        return;
+      }
+
+      // Lecture d'un nouvel audio
+      await audioPlayer.stop();
+      playingAudioUrl = url;
+
+      // Forcer le volume max et le mode de lecture média
+      await audioPlayer.setVolume(1.0);
+      await audioPlayer.play(
+        UrlSource(url),
+        mode: PlayerMode.mediaPlayer,
+      );
+
+      setState(() => isPlayingAudio = true);
+    } catch (e) {
+      debugPrint('ERREUR LECTURE AUDIO : $e');
+      setState(() => isPlayingAudio = false);
+      _showError('Impossible de lire le message vocal.');
+    }
+  }*/
+
+  Future<void> _toggleAudio(String? url) async {
+    if (url == null || url.isEmpty) {
+      debugPrint('AUDIO ❌ URL vide');
+      return;
+    }
+
+    try {
+      // ------------------------------------------------------------
+      // 1. Construire une URL accessible depuis le téléphone
+      // ------------------------------------------------------------
+      String audioUrl = url.trim();
+
+      debugPrint('AUDIO URL REÇUE : $audioUrl');
+
+      // Si Laravel renvoie seulement :
+      // /storage/...
+      // on ajoute l'adresse du serveur.
+      if (audioUrl.startsWith('/')) {
+        audioUrl = '${AppConstants.mediaBaseUrl}$audioUrl';
+      }
+
+      // Si Laravel renvoie localhost ou 127.0.0.1,
+      // on remplace par l'adresse IP du PC.
+      if (audioUrl.contains('localhost:8000')) {
+        audioUrl = audioUrl.replaceFirst(
+          'http://localhost:8000',
+          AppConstants.mediaBaseUrl,
+        );
+      }
+
+      if (audioUrl.contains('127.0.0.1:8000')) {
+        audioUrl = audioUrl.replaceFirst(
+          'http://127.0.0.1:8000',
+          AppConstants.mediaBaseUrl,
+        );
+      }
+
+      debugPrint('AUDIO URL FINALE : $audioUrl');
+
+      // ------------------------------------------------------------
+      // 2. Pause si le même vocal est en cours
+      // ------------------------------------------------------------
+      if (isPlayingAudio && playingAudioUrl == audioUrl) {
+        await audioPlayer.pause();
+
+        if (mounted) {
+          setState(() => isPlayingAudio = false);
+        }
+
+        return;
+      }
+
+      // ------------------------------------------------------------
+      // 3. Reprendre si le même vocal est en pause
+      // ------------------------------------------------------------
+      if (!isPlayingAudio &&
+          playingAudioUrl == audioUrl &&
+          audioPlayer.state == PlayerState.paused) {
+        await audioPlayer.resume();
+
+        if (mounted) {
+          setState(() => isPlayingAudio = true);
+        }
+
+        return;
+      }
+
+      // ------------------------------------------------------------
+      // 4. Arrêter l'ancien vocal
+      // ------------------------------------------------------------
+      await audioPlayer.stop();
+
+      playingAudioUrl = audioUrl;
+
+      // ------------------------------------------------------------
+      // 5. Volume
+      // ------------------------------------------------------------
+      await audioPlayer.setVolume(1.0);
+
+      // ------------------------------------------------------------
+      // 6. Lecture
+      // ------------------------------------------------------------
+      debugPrint('AUDIO ▶️ LECTURE : $audioUrl');
+
+      await audioPlayer.play(
+        UrlSource(audioUrl),
+        mode: PlayerMode.mediaPlayer,
+      );
+
+      if (mounted) {
+        setState(() => isPlayingAudio = true);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('AUDIO ❌ ERREUR : $e');
+      debugPrint('AUDIO ❌ STACK : $stackTrace');
+
+      if (mounted) {
+        setState(() => isPlayingAudio = false);
+
+        _showError(
+          'Impossible de lire le message vocal.',
+        );
+      }
     }
   }
 
@@ -1259,7 +1452,7 @@ class _AlertesScreenState extends State<AlertesScreen> {
   // ENREGISTREMENT VOCAL
   // ================================================================
 
-  Future<void> _startRecording() async {
+  /*Future<void> _startRecording() async {
     if (isRecording) return;
 
     try {
@@ -1276,6 +1469,53 @@ class _AlertesScreenState extends State<AlertesScreen> {
 
       await audioRecorder.start(
         const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100),
+        path: path,
+      );
+
+      setState(() {
+        isRecording = true;
+        recordingSeconds = 0;
+      });
+
+      recordingTimer?.cancel();
+      recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        setState(() => recordingSeconds++);
+      });
+    } catch (e) {
+      _showError(
+        'Impossible de démarrer l’enregistrement : ${e.toString().replaceFirst('Exception: ', '')}',
+      );
+    }
+  }*/
+
+
+  Future<void> _startRecording() async {
+    if (isRecording) return;
+
+    try {
+      final hasPermission = await audioRecorder.hasPermission();
+      if (!hasPermission) {
+        _showError(
+          'Permission microphone refusée. Vérifie les autorisations de l\'app dans les paramètres du téléphone.',
+        );
+        return;
+      }
+
+      // Web : pas de système de fichiers, le package record renvoie une URL blob.
+      // Mobile : fichier temporaire en .m4a (AAC).
+      String path = '';
+      if (!kIsWeb) {
+        final directory = await getTemporaryDirectory();
+        path = '${directory.path}/sirafleet_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      }
+
+      await audioRecorder.start(
+        RecordConfig(
+          encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc,
+          bitRate: 128000,
+          sampleRate: 44100,
+        ),
         path: path,
       );
 
@@ -1325,7 +1565,15 @@ class _AlertesScreenState extends State<AlertesScreen> {
 
       if (token == null) throw Exception('Utilisateur non authentifié.');
 
-      final message = await _signalementService.sendVocalMessage(token, signalementId!, path, duration);
+      //final message = await _signalementService.sendVocalMessage(token, signalementId!, path, duration);
+
+      final message = await _signalementService.sendVocalMessage(
+        token,
+        signalementId!,
+        path,
+        duration,
+        fileExtension: kIsWeb ? 'webm' : 'm4a',
+      );
 
       setState(() {
         messages.add(message);

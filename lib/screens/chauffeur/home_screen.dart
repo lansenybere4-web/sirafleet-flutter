@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../notifications/notifications_screen.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/notification_provider.dart';
 import '../../services/chauffeur_service.dart';
+
+import 'package:geolocator/geolocator.dart';
+import '../../services/signalement_service.dart';
 
 import '../auth/login_screen.dart';
 import 'alertes_screen.dart';
@@ -26,6 +27,7 @@ class _ChauffeurHomeScreenState extends State<ChauffeurHomeScreen> {
   static const Color backgroundColor = Color(0xFFF5F7FA);
 
   final ChauffeurService _chauffeurService = ChauffeurService();
+  final SignalementService _signalementService = SignalementService();
 
   bool _isLoading = true;
   String? _error;
@@ -158,75 +160,7 @@ class _ChauffeurHomeScreenState extends State<ChauffeurHomeScreen> {
         actions: [
           // ======================================================
           // NOTIFICATIONS
-          // ======================================================
-
-          Consumer<NotificationProvider>(
-            builder: (
-                context,
-                notificationProvider,
-                child,
-                ) {
-              final unreadCount =
-                  notificationProvider.unreadCount;
-
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  IconButton(
-                    tooltip: 'Notifications',
-                    icon: const Icon(
-                      Icons.notifications_none_rounded,
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                          const NotificationsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-
-                  if (unreadCount > 0)
-                    Positioned(
-                      right: 7,
-                      top: 7,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: dangerColor,
-                          borderRadius:
-                          BorderRadius.circular(20),
-                          border: Border.all(
-                            color: primaryColor,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          unreadCount > 99
-                              ? '99+'
-                              : unreadCount.toString(),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
+          // =====================================================
 
           // ======================================================
           // DÉCONNEXION
@@ -1334,7 +1268,7 @@ class _ChauffeurHomeScreenState extends State<ChauffeurHomeScreen> {
   // ENVOI SOS
   // ============================================================
 
-  Future<void> _sendSOS(
+ /* Future<void> _sendSOS(
       BuildContext context,
       ) async {
     final authProvider =
@@ -1369,6 +1303,68 @@ class _ChauffeurHomeScreenState extends State<ChauffeurHomeScreen> {
       _showMessage(
         context,
         'Erreur lors de l’envoi du SOS.',
+        dangerColor,
+      );
+    }
+  }*/
+
+  Future<void> _sendSOS(BuildContext context) async {
+    final authProvider = context.read<AuthProvider>();
+    final token = authProvider.token;
+
+    if (token == null || token.isEmpty) {
+      _showMessage(context, 'Session expirée.', dangerColor);
+      return;
+    }
+
+    final missionId = int.tryParse(_mission?['id']?.toString() ?? '');
+    final camionId = int.tryParse(
+      (_camion?['id'] ?? _mission?['camion_id'])?.toString() ?? '',
+    );
+
+    if (missionId == null || camionId == null) {
+      _showMessage(context, 'Aucune mission active pour envoyer un SOS.', dangerColor);
+      return;
+    }
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Le GPS du téléphone est désactivé.');
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Permission de localisation refusée.');
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      await _signalementService.sendSos(
+        token,
+        missionId: missionId,
+        camionId: camionId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+
+      if (!context.mounted) return;
+
+      _showMessage(context, '🚨 SOS envoyé au responsable de flotte.', dangerColor);
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AlertesScreen()),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      _showMessage(
+        context,
+        'Erreur lors de l\u2019envoi du SOS : ${e.toString().replaceFirst('Exception: ', '')}',
         dangerColor,
       );
     }

@@ -205,7 +205,7 @@ class SignalementService {
   // cette méthode n'est appelée qu'avec un vrai chemin mobile.
   // ============================================================
 
-  Future<MessageSignalementModel> sendVocalMessage(
+  /*Future<MessageSignalementModel> sendVocalMessage(
       String token,
       int signalementId,
       String audioFilePath,
@@ -241,6 +241,38 @@ class SignalementService {
     throw Exception(
       body['message'] ?? 'Impossible d’envoyer le message vocal.',
     );
+  }*/
+
+  Future<MessageSignalementModel> sendVocalMessage(
+      String token,
+      int signalementId,
+      String audioFilePath,
+      int durationSeconds, {
+        String fileExtension = 'm4a',
+      }) async {
+    final file = XFile(audioFilePath);
+    final bytes = await file.readAsBytes();
+    // Sur le web, audioFilePath est une URL blob sans extension exploitable :
+    // on construit nous-mêmes un nom de fichier propre.
+    final filename = 'vocal_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+
+    final uri = Uri.parse('$baseUrl/signalements/$signalementId/messages/vocal');
+
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Accept'] = 'application/json'
+      ..headers['Authorization'] = 'Bearer $token'
+      ..fields['audio_duration'] = durationSeconds.toString()
+      ..files.add(http.MultipartFile.fromBytes('audio', bytes, filename: filename));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    final body = _decodeResponse(response);
+
+    if (response.statusCode == 201 && body['success'] == true) {
+      return MessageSignalementModel.fromJson(Map<String, dynamic>.from(body['data']));
+    }
+
+    throw Exception(body['message'] ?? 'Impossible d\u2019envoyer le message vocal.');
   }
 
   // ============================================================
@@ -329,4 +361,43 @@ class SignalementService {
       body['message'] ?? 'Erreur lors de la récupération des données.',
     );
   }
+
+
+  // ============================================================
+// ENVOYER UN SOS
+// ============================================================
+
+  Future<Map<String, dynamic>> sendSos(
+      String token, {
+        required int missionId,
+        required int camionId,
+        required double latitude,
+        required double longitude,
+        String? description,
+      }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/signalements/sos'),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'mission_id': missionId,
+        'camion_id': camionId,
+        'latitude': latitude,
+        'longitude': longitude,
+        'description': description,
+      }),
+    );
+
+    final body = _decodeResponse(response);
+
+    if (response.statusCode == 201 && body['success'] == true) {
+      return Map<String, dynamic>.from(body['data']);
+    }
+
+    throw Exception(body['message'] ?? 'Impossible d\u2019envoyer le SOS.');
+  }
+
 }

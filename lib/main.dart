@@ -1,16 +1,32 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:sirafleet/services/push_notification_service.dart';
+import 'package:sirafleet/firebase_options.dart';
 
 import 'providers/auth_provider.dart';
-import 'providers/notification_provider.dart';
 
 import 'screens/auth/login_screen.dart';
 import 'screens/admin/dashboard_screen.dart';
 import 'screens/responsable/dashboard_screen.dart';
 import 'screens/chauffeur/home_screen.dart';
 
-void main() {
+/*void main() {
+  runApp(const SiraFleetApp());
+}*/
+/*void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  await PushNotificationService.instance.init();
+  runApp(const SiraFleetApp());
+}*/
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform, // ajouté
+  );
+  await PushNotificationService.instance.init();
   runApp(const SiraFleetApp());
 }
 
@@ -23,9 +39,6 @@ class SiraFleetApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(
           create: (_) => AuthProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => NotificationProvider(),
         ),
       ],
       child: MaterialApp(
@@ -42,6 +55,7 @@ class SiraFleetApp extends StatelessWidget {
           Locale('fr', 'FR'),
           Locale('en', 'US'),
         ],
+        navigatorKey: PushNotificationService.instance.navigatorKey,
 
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,

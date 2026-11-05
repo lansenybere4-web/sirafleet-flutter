@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../core/constants.dart';
+import '../models/camion_details_model.dart';
 import '../models/camion_model.dart';
 
 class CamionService {
@@ -156,6 +157,8 @@ class CamionService {
     int? annee,
     double kilometrage = 0,
     String statut = 'disponible',
+    int? anneeAcquisition,
+    DateTime? dateMiseEnService,
     String? token,
   }) async {
     try {
@@ -177,6 +180,14 @@ class CamionService {
 
       if (annee != null) {
         body['annee'] = annee;
+      }
+      // dans le body, à côté de 'annee'
+      if (anneeAcquisition != null) {
+        body['annee_acquisition'] = anneeAcquisition;
+      }
+      if (dateMiseEnService != null) {
+        body['date_mise_en_service'] =
+            dateMiseEnService.toIso8601String().substring(0, 10);
       }
 
       final response = await http.post(
@@ -239,6 +250,8 @@ class CamionService {
     int? annee,
     double? kilometrage,
     String? statut,
+    int? anneeAcquisition,
+    DateTime? dateMiseEnService,
     String? token,
   }) async {
     try {
@@ -265,6 +278,15 @@ class CamionService {
 
       if (annee != null) {
         body['annee'] = annee;
+      }
+
+      // dans le body, à côté de 'annee'
+      if (anneeAcquisition != null) {
+        body['annee_acquisition'] = anneeAcquisition;
+      }
+      if (dateMiseEnService != null) {
+        body['date_mise_en_service'] =
+            dateMiseEnService.toIso8601String().substring(0, 10);
       }
 
       if (kilometrage != null) {
@@ -367,6 +389,35 @@ class CamionService {
       throw Exception(
         'Erreur de connexion au serveur.',
       );
+    }
+  }
+
+
+
+
+  Future<CamionDetails> getCamionDetails(int id, {String? token}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/camions/$id/details'),
+        headers: _headers(token: token),
+      );
+
+      final decoded = _decodeResponse(response);
+
+      if (response.statusCode != 200) {
+        throw Exception(_extractErrorFromDecoded(decoded));
+      }
+
+      if (decoded['data'] is! Map) {
+        throw Exception('Données du camion invalides.');
+      }
+
+      return CamionDetails.fromJson(
+        Map<String, dynamic>.from(decoded['data']),
+      );
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Erreur de connexion au serveur.');
     }
   }
 

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../notifications/notifications_screen.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/notification_provider.dart';
 import '../../services/dashboard_service.dart';
 import '../../widgets/kpi_card.dart';
 import '../../widgets/sidebar_responsable.dart';
@@ -166,53 +164,7 @@ class _ResponsableDashboardScreenState
             onPressed: _isLoading ? null : _loadDashboard,
             icon: const Icon(Icons.refresh_rounded, color: Color(0xFF374151)),
           ),
-          Consumer<NotificationProvider>(
-            builder: (context, notificationProvider, child) {
-              final unreadCount = notificationProvider.unreadCount;
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    tooltip: 'Notifications',
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const NotificationsScreen(),
-                      ),
-                    ),
-                    icon: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: Color(0xFF374151),
-                    ),
-                  ),
-                  if (unreadCount > 0)
-                    Positioned(
-                      right: 4,
-                      top: 2,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE63946),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                        child: Text(
-                          unreadCount > 99 ? '99+' : unreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
+
           const SizedBox(width: 18),
           CircleAvatar(
             radius: 20,

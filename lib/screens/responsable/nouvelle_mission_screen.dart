@@ -85,6 +85,34 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
 
   bool get _isEditing => widget.missionToEdit != null;
 
+  // ================================================================
+  // CAMIONS DISPONIBLES UNIQUEMENT
+  // ================================================================
+
+  /// Seuls les camions dont le statut réel est "disponible" sont proposés.
+  /// En modification, le camion déjà affecté à la mission reste proposé
+  /// (même s'il est "en mission" ou autre) pour ne pas casser le formulaire.
+  List<Camion> get _camionsDisponibles {
+    final editedCamionId = widget.missionToEdit?.camionId;
+
+    return _camions
+        .where((c) => c.estDisponible || c.id == editedCamionId)
+        .toList();
+  }
+
+  /// Valeur du dropdown : on retrouve l'instance présente dans la liste
+  /// filtrée (évite l'assertion Flutter si la liste a été rechargée).
+  Camion? get _camionSelectionne {
+    final selected = _selectedCamion;
+    if (selected == null) return null;
+
+    for (final c in _camionsDisponibles) {
+      if (c.id == selected.id) return c;
+    }
+
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -133,11 +161,18 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
         _camions = results[0] as List<Camion>;
         _chauffeurs = results[1] as List<Chauffeur>;
         _loading = false;
+
+        // Si le camion sélectionné n'est plus disponible après rechargement,
+        // on le désélectionne (sauf en modification de sa propre mission).
+        final sel = _selectedCamion;
+        if (sel != null && _camionSelectionne == null) {
+          _selectedCamion = null;
+        }
       });
 
-      if (_isEditing) {
+      if (_isEditing && _referenceController.text.isEmpty) {
         _prefillFromMission(widget.missionToEdit!);
-      } else {
+      } else if (!_isEditing && _selectedDate == null) {
         setState(() {
           _selectedDate = DateTime.now();
           _selectedTime = const TimeOfDay(hour: 8, minute: 0);
@@ -268,8 +303,10 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
 
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedCamion == null) {
-      _showError('Veuillez sélectionner un camion.');
+    final camion = _camionSelectionne;
+
+    if (camion == null) {
+      _showError('Veuillez sélectionner un camion disponible.');
       return;
     }
 
@@ -301,8 +338,7 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
         _errorMessage = null;
       });
 
-      final statut =
-      _isEditing ? widget.missionToEdit!.statut : 'a_venir';
+      final statut = _isEditing ? widget.missionToEdit!.statut : 'a_venir';
 
       final mission = Mission(
         id: _isEditing ? widget.missionToEdit!.id : null,
@@ -314,9 +350,9 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
         destination: _destinationController.text.trim(),
         destinationLat: _destinationLatLng!.latitude,
         destinationLng: _destinationLatLng!.longitude,
-        camion: _selectedCamion!.matricule,
+        camion: camion.matricule,
         chauffeur: _selectedChauffeur!.nomComplet,
-        camionId: _selectedCamion!.id,
+        camionId: camion.id,
         chauffeurId: _selectedChauffeur!.id,
         date: _formatDate(_selectedDate!),
         heure: _formatTime(_selectedTime!),
@@ -429,6 +465,8 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
                       step: '2',
                       title: 'Affectation',
                       icon: Icons.local_shipping_outlined,
+                      subtitle:
+                      'Seuls les camions disponibles (ni en mission, ni en maintenance, ni en panne) sont proposés.',
                       child: _affectationSection(),
                     ),
 
@@ -487,9 +525,9 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: dangerColor.withOpacity(0.06),
+        color: dangerColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: dangerColor.withOpacity(0.25)),
+        border: Border.all(color: dangerColor.withValues(alpha: 0.25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,7 +567,7 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.add_road_rounded,
@@ -554,7 +592,7 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
                 Text(
                   'Renseignez les informations ci-dessous et affectez un camion et un chauffeur.',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 12,
                   ),
                 ),
@@ -587,7 +625,7 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
         border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -603,7 +641,7 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
                 height: 30,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.08),
+                  color: primaryColor.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -618,12 +656,14 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
               const SizedBox(width: 10),
               Icon(icon, color: primaryColor, size: 19),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 15.5,
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
+              Flexible(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor,
+                  ),
                 ),
               ),
               if (optional) ...[
@@ -757,36 +797,86 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
 
   Widget _affectationSection() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _camionDropdown(),
+        const SizedBox(height: 8),
+        _camionsInfo(),
         const SizedBox(height: 14),
         _chauffeurDropdown(),
       ],
     );
   }
 
+  /// Message d'information sous la liste des camions.
+  Widget _camionsInfo() {
+    final dispo = _camionsDisponibles.length;
+    final total = _camions.length;
+
+    if (total > 0 && dispo == 0) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: dangerColor.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: dangerColor.withValues(alpha: 0.25)),
+        ),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline, color: dangerColor, size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Aucun camion disponible pour le moment : tous sont en '
+                    'mission, en maintenance ou en panne.',
+                style: TextStyle(fontSize: 12, color: dangerColor),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Text(
+      '$dispo camion(s) disponible(s) sur $total',
+      style: const TextStyle(fontSize: 11.5, color: textSecondary),
+    );
+  }
+
   Widget _camionDropdown() {
+    final camions = _camionsDisponibles;
+
     return DropdownButtonFormField<Camion>(
-      value: _selectedCamion,
+      value: _camionSelectionne,
       isExpanded: true,
       decoration: _inputDecoration(
         label: 'Camion',
-        hint: 'Sélectionner un camion',
+        hint: camions.isEmpty
+            ? 'Aucun camion disponible'
+            : 'Sélectionner un camion disponible',
         icon: Icons.local_shipping_outlined,
       ),
-      items: _camions.map((c) {
+      items: camions.map((c) {
+        final marque =
+        (c.marque != null && c.marque!.isNotEmpty) ? ' - ${c.marque}' : '';
+        final modele =
+        (c.modele != null && c.modele!.isNotEmpty) ? ' ${c.modele}' : '';
+
         return DropdownMenuItem<Camion>(
           value: c,
           child: Text(
-            '${c.matricule}'
-                '${c.marque != null && c.marque!.isNotEmpty ? ' - ${c.marque}' : ''}'
-                '${c.modele != null && c.modele!.isNotEmpty ? ' ${c.modele}' : ''}',
+            '${c.matricule}$marque$modele',
             overflow: TextOverflow.ellipsis,
           ),
         );
       }).toList(),
-      onChanged: (c) => setState(() => _selectedCamion = c),
-      validator: (v) => v == null ? 'Veuillez sélectionner un camion.' : null,
+      onChanged: camions.isEmpty
+          ? null
+          : (c) => setState(() => _selectedCamion = c),
+      validator: (v) =>
+      v == null ? 'Veuillez sélectionner un camion disponible.' : null,
     );
   }
 
@@ -819,16 +909,20 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 1. POINT DE DÉPART (saisie texte)
         _textField(
           controller: _origineController,
-          label: 'Point de départ (texte libre)',
-          hint: 'Ex: Site minier de Kayes',
+          label: 'Point de départ',
+          hint: 'Ex: Bamako, Entrepôt Principal, Site de Kayes...',
           icon: Icons.trip_origin,
           validator: (v) => (v == null || v.trim().isEmpty)
               ? 'Le point de départ est obligatoire.'
               : null,
         ),
-        const SizedBox(height: 16),
+
+        const SizedBox(height: 20),
+
+        // 2. DESTINATION (sélection sur carte)
         const Text(
           'Destination',
           style: TextStyle(
@@ -838,6 +932,7 @@ class _NouvelleMissionScreenState extends State<NouvelleMissionScreen> {
           ),
         ),
         const SizedBox(height: 8),
+
         DestinationPicker(
           initialPosition: _destinationLatLng,
           initialAddress: _destinationController.text.isNotEmpty

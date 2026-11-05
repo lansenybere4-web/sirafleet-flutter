@@ -1,252 +1,12 @@
-/*import 'dart:convert';
-
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import '../models/user_model.dart';
-import '../services/api_service.dart';
-
-class AuthProvider extends ChangeNotifier {
-  final ApiService _apiService = ApiService();
-
-  UserModel? _user;
-  String? _token;
-
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  // ============================================================
-  // GETTERS
-  // ============================================================
-
-  UserModel? get user => _user;
-
-  String? get token => _token;
-
-  bool get isLoading => _isLoading;
-
-  String? get errorMessage => _errorMessage;
-
-  bool get isAuthenticated =>
-      _token != null && _user != null;
-
-  // ============================================================
-  // LOGIN
-  // ============================================================
-
-  Future<bool> login(
-      String email,
-      String password,
-      ) async {
-    _isLoading = true;
-    _errorMessage = null;
-
-    notifyListeners();
-
-    try {
-      final data = await _apiService.login(
-        email,
-        password,
-      );
-
-      // ========================================================
-      // TOKEN
-      // ========================================================
-
-      final token = data['token']?.toString();
-
-      // ========================================================
-      // USER
-      // ========================================================
-
-      final userData =
-      data['user'] as Map<String, dynamic>?;
-
-      if (token == null ||
-          token.isEmpty ||
-          userData == null) {
-        _errorMessage =
-        'Réponse invalide du serveur.';
-
-        _isLoading = false;
-        notifyListeners();
-
-        return false;
-      }
-
-      _token = token;
-
-      _user = UserModel.fromJson(
-        userData,
-      );
-
-      // ========================================================
-      // SAUVEGARDE LOCALE
-      // ========================================================
-
-      final prefs =
-      await SharedPreferences.getInstance();
-
-      await prefs.setString(
-        'token',
-        _token!,
-      );
-
-      await prefs.setString(
-        'user',
-        jsonEncode(userData),
-      );
-
-      _isLoading = false;
-
-      notifyListeners();
-
-      return true;
-    } catch (e) {
-      debugPrint(
-        'Erreur login : $e',
-      );
-
-      _errorMessage = e
-          .toString()
-          .replaceFirst('Exception: ', '');
-
-      _isLoading = false;
-
-      notifyListeners();
-
-      return false;
-    }
-  }
-
-  // ============================================================
-  // AUTO LOGIN
-  // ============================================================
-
-  Future<void> tryAutoLogin() async {
-    try {
-      final prefs =
-      await SharedPreferences.getInstance();
-
-      final savedToken =
-      prefs.getString('token');
-
-      final savedUser =
-      prefs.getString('user');
-
-      if (savedToken == null ||
-          savedToken.isEmpty) {
-        return;
-      }
-
-      _token = savedToken;
-
-      // ========================================================
-      // RESTAURATION LOCALE
-      // ========================================================
-
-      if (savedUser != null &&
-          savedUser.isNotEmpty) {
-        final Map<String, dynamic> userData =
-        jsonDecode(savedUser);
-
-        _user = UserModel.fromJson(
-          userData,
-        );
-
-        notifyListeners();
-      }
-
-      // ========================================================
-      // VÉRIFICATION AUPRÈS DE LARAVEL
-      // ========================================================
-
-      try {
-        final data =
-        await _apiService.getUser(
-          _token!,
-        );
-
-        final userData =
-        data['data'] as Map<String, dynamic>?;
-
-        if (userData != null) {
-          _user = UserModel.fromJson(
-            userData,
-          );
-
-          await prefs.setString(
-            'user',
-            jsonEncode(userData),
-          );
-
-          notifyListeners();
-        }
-      } catch (e) {
-        debugPrint(
-          'Session Laravel invalide : $e',
-        );
-
-        await logout();
-      }
-    } catch (e) {
-      debugPrint(
-        'Erreur auto login : $e',
-      );
-
-      await logout();
-    }
-  }
-
-  // ============================================================
-  // LOGOUT
-  // ============================================================
-
-  Future<void> logout() async {
-    try {
-      if (_token != null) {
-        await _apiService.logout(
-          _token!,
-        );
-      }
-    } catch (e) {
-      debugPrint(
-        'Erreur logout API : $e',
-      );
-    }
-
-    final prefs =
-    await SharedPreferences.getInstance();
-
-    await prefs.remove('token');
-    await prefs.remove('user');
-
-    _user = null;
-    _token = null;
-    _errorMessage = null;
-
-    notifyListeners();
-  }
-
-  // ============================================================
-  // EFFACER ERREUR
-  // ============================================================
-
-  void clearError() {
-    _errorMessage = null;
-    notifyListeners();
-  }
-}*/
 
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/constants.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../services/push_notification_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -378,9 +138,7 @@ class AuthProvider extends ChangeNotifier {
         '========================================',
       );
 
-      debugPrint(
-        'Réponse login Laravel : $data',
-      );
+      //debugPrint('Réponse login Laravel : $data',);
 
       // ========================================================
       // TOKEN
@@ -451,6 +209,8 @@ class AuthProvider extends ChangeNotifier {
         jsonEncode(userData),
       );
 
+      await PushNotificationService.instance.registerToken(token);
+
       // ========================================================
       // FIN
       // ========================================================
@@ -500,6 +260,7 @@ class AuthProvider extends ChangeNotifier {
 
       return false;
     }
+
   }
 
   // ============================================================
@@ -580,9 +341,7 @@ class AuthProvider extends ChangeNotifier {
           _token!,
         );
 
-        debugPrint(
-          'Réponse /me : $data',
-        );
+        //debugPrint('Réponse /me : $data',);
 
         dynamic rawUser;
 
@@ -646,54 +405,44 @@ class AuthProvider extends ChangeNotifier {
   // LOGOUT
   // ============================================================
 
+
   Future<void> logout({
     bool callApi = true,
   }) async {
-    if (callApi &&
-        _token != null &&
-        _token!.trim().isNotEmpty) {
-      try {
-        await _apiService.logout(
-          _token!,
-        );
+    final currentToken = _token; // capturé avant tout nettoyage
 
-        debugPrint(
-          'Déconnexion Laravel réussie.',
-        );
+    if (callApi && currentToken != null && currentToken.trim().isNotEmpty) {
+      try {
+        await _apiService.logout(currentToken);
+        debugPrint('Déconnexion Laravel réussie.');
       } catch (e) {
-        debugPrint(
-          'Erreur logout API : $e',
-        );
+        debugPrint('Erreur logout API : $e');
       }
     }
 
     try {
-      final prefs =
-      await SharedPreferences.getInstance();
-
+      final prefs = await SharedPreferences.getInstance();
       await prefs.remove('token');
-
       await prefs.remove('user');
+
+      if (currentToken != null && currentToken.trim().isNotEmpty) {
+        await PushNotificationService.instance.unregisterToken(currentToken);
+      }
     } catch (e) {
-      debugPrint(
-        'Erreur suppression session locale : $e',
-      );
+      debugPrint('Erreur suppression session locale : $e');
     }
 
     _user = null;
-
     _token = null;
-
     _errorMessage = null;
-
     _isLoading = false;
 
     notifyListeners();
 
-    debugPrint(
-      'Session locale supprimée.',
-    );
+    debugPrint('Session locale supprimée.');
   }
+
+
 
   // ============================================================
   // REFRESH USER
@@ -762,37 +511,6 @@ class AuthProvider extends ChangeNotifier {
 
     notifyListeners();
   }
-
- /* Future<void> updateProfile({
-    String? nom,
-    String? prenom,
-    String? email,
-    String? numTel,
-    String? address,
-  }) async {
-    final response = await http.put(
-      Uri.parse('${AppConstants.baseUrl}/me'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        if (nom != null) 'nom': nom,
-        if (prenom != null) 'prenom': prenom,
-        if (email != null) 'email': email,
-        if (numTel != null) 'num_tel': numTel,
-        if (address != null) 'address': address,
-      }),
-    );
-
-    final body = jsonDecode(response.body);
-    if (response.statusCode != 200) {
-      throw Exception(body['message'] ?? 'Mise à jour impossible.');
-    }
-
-    user = User.fromJson(body['data']); // adapte selon ton modèle User
-    notifyListeners();
-  }*/
 
   // ============================================================
   // CLEAN ERROR

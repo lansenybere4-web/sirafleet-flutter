@@ -912,6 +912,7 @@ class _CarburantScreenState extends State<CarburantScreen>
                       // ÉQUIPEMENT (le champ manquant)
                       // ------------------------------------
                       DropdownButtonFormField<int>(
+                        key: ValueKey('equipement-$camionId'),
                         initialValue: equipementId,
                         decoration: InputDecoration(
                           labelText: 'Équipement',

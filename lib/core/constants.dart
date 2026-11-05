@@ -13,7 +13,7 @@ class AppConstants {
       //return 'http://10.0.2.2:8000/api';
 
       // Sur un vrai téléphone Android, remplace la ligne au-dessus par :
-       return 'http://192.168.1.9:8000/api'; // IP locale de ton PC (ipconfig)
+      return 'http://192.168.1.14:8000/api'; // IP locale de ton PC (ipconfig)
     }
 
     if (Platform.isIOS) {

@@ -28,6 +28,9 @@ class AlerteModel {
   final double? latitude;
   final double? longitude;
 
+  ///reference
+  final String? missionReference;
+
   AlerteModel({
     required this.id,
     required this.type,
@@ -43,6 +46,7 @@ class AlerteModel {
     this.camionId,
     this.latitude,
     this.longitude,
+    this.missionReference
   });
 
   factory AlerteModel.fromJson(Map<String, dynamic> json) {
@@ -58,6 +62,11 @@ class AlerteModel {
 
     final camion = json['camion'];
     final chauffeur = json['chauffeur'];
+
+    final mission = json['mission'];
+    final missionReference = mission is Map
+        ? (mission['reference']?.toString() ?? 'Mission #${mission['id']}')
+        : null;
 
     String source = 'Inconnu';
 

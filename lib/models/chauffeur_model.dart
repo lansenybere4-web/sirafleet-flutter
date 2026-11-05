@@ -13,6 +13,10 @@ class Chauffeur {
   final String permis;
   final String typePermis;
 
+  final String siteAffectation;
+  final String address;
+  final String? photoProfil;
+
   final String statut;
 
   final String? dateEmbauche;
@@ -50,6 +54,9 @@ class Chauffeur {
     this.signalementsCount = 0,
     this.camionActuel,
     this.camionActuelType,
+    this.address = "",
+    this.siteAffectation = '',
+    this.photoProfil,
   });
 
   // ============================================================
@@ -200,6 +207,28 @@ class Chauffeur {
     final String? camionActuelType =
     camion == null ? null : _nullableString(camion['type']);
 
+    final String siteAffectation = _firstNonEmpty([
+      json['siteAffectation'],
+      json['site_affectation'],
+      user?['siteAffectation'],
+      user?['site_affectation'],
+    ]);
+
+    final String address = _firstNonEmpty([
+      json['address'],
+      user?['address'],
+    ]);
+
+    // On ne garde la photo que si c'est une URL complète.
+    final String? photoProfil = _nullableString(
+      json['photo_url'] ??
+          user?['photo_url'] ??
+          json['photoProfil'] ??
+          user?['photoProfil'],
+    );
+   /* final String? photoProfil =
+    (photoRaw != null && photoRaw.startsWith('http')) ? photoRaw : null;*/
+
     return Chauffeur(
       id: _parseInt(json['id']),
       userId: _parseInt(json['user_id']),
@@ -218,6 +247,9 @@ class Chauffeur {
       signalementsCount: signalementsCount,
       camionActuel: camionActuel,
       camionActuelType: camionActuelType,
+      siteAffectation: siteAffectation,
+      address: address,
+      photoProfil: photoProfil,
     );
   }
 

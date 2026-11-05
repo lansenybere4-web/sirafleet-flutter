@@ -251,6 +251,8 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
 
   Color _statusColor(String? status) {
     switch (status) {
+      case 'disponible':
+        return primary;
       case 'en_circulation':
         return successColor;
       case 'en_panne':
@@ -264,6 +266,8 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
 
   String _statusLabel(String? status) {
     switch (status) {
+      case 'disponible':
+        return 'Disponible';
       case 'en_circulation':
         return 'En circulation';
       case 'en_panne':

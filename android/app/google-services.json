@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "299440315883",
+    "project_id": "sirafleet",
+    "storage_bucket": "sirafleet.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:299440315883:android:14bc03b728e2b3eb044dae",
+        "android_client_info": {
+          "package_name": "com.example.sirafleet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJi4cnbt-CW4WmTyFHscaBs4b0L4vyuGg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

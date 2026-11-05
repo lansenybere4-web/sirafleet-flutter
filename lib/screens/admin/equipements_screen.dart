@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/equipement_model.dart';
@@ -97,7 +97,6 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
           recherche.isEmpty ||
               equipement.type.toLowerCase().contains(recherche) ||
               equipement.numeroSerie.toLowerCase().contains(recherche) ||
-              equipement.imei.toLowerCase().contains(recherche) ||
               equipement.camionMatricule
                   .toLowerCase()
                   .contains(recherche);
@@ -240,22 +239,6 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
       text: equipement?.numeroSerie ?? '',
     );
 
-    final imeiController = TextEditingController(
-      text: equipement?.imei ?? '',
-    );
-
-    final fabricantController = TextEditingController(
-      text: equipement?.fabricant ?? '',
-    );
-
-    final modeleController = TextEditingController(
-      text: equipement?.modele ?? '',
-    );
-
-    final firmwareController = TextEditingController(
-      text: equipement?.versionFirmware ?? '',
-    );
-
     final dateInstallationController = TextEditingController(
       text: equipement?.dateInstallation ?? '',
     );
@@ -300,10 +283,6 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
                     id: equipement.id,
                     type: typeController.text.trim(),
                     numeroSerie: numeroSerieController.text.trim(),
-                    imei: imeiController.text.trim(),
-                    fabricant: fabricantController.text.trim(),
-                    modele: modeleController.text.trim(),
-                    versionFirmware: firmwareController.text.trim(),
                     camionId: camionId,
                     statut: statut,
                     dateInstallation:
@@ -317,10 +296,6 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
                   await _equipementService.createEquipement(
                     type: typeController.text.trim(),
                     numeroSerie: numeroSerieController.text.trim(),
-                    imei: imeiController.text.trim(),
-                    fabricant: fabricantController.text.trim(),
-                    modele: modeleController.text.trim(),
-                    versionFirmware: firmwareController.text.trim(),
                     camionId: camionId,
                     statut: statut,
                     dateInstallation:
@@ -332,9 +307,11 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
                   );
                 }
 
-                if (!mounted) return;
+                if (!mounted || !dialogContext.mounted) return;
 
-                Navigator.pop(dialogContext);
+                Navigator.of(dialogContext).pop();
+
+                if (!mounted) return;
 
                 ScaffoldMessenger.of(this.context).showSnackBar(
                   SnackBar(
@@ -348,11 +325,11 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
 
                 await _chargerDonnees();
               } catch (e) {
+                if (!mounted || !dialogContext.mounted) return;
+
                 setDialogState(() {
                   isSaving = false;
                 });
-
-                if (!mounted) return;
 
                 ScaffoldMessenger.of(this.context).showSnackBar(
                   SnackBar(
@@ -397,50 +374,6 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
                                 label: 'Numéro de série',
                                 icon: Icons.numbers,
                                 requiredField: true,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _champ(
-                                controller: imeiController,
-                                label: 'IMEI',
-                                icon: Icons.phone_android,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _champ(
-                                controller: fabricantController,
-                                label: 'Fabricant',
-                                icon: Icons.business,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _champ(
-                                controller: modeleController,
-                                label: 'Modèle',
-                                icon: Icons.category,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _champ(
-                                controller: firmwareController,
-                                label: 'Version firmware',
-                                icon: Icons.system_update,
                               ),
                             ),
                           ],
@@ -598,10 +531,6 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
 
     typeController.dispose();
     numeroSerieController.dispose();
-    imeiController.dispose();
-    fabricantController.dispose();
-    modeleController.dispose();
-    firmwareController.dispose();
     dateInstallationController.dispose();
     dateControleController.dispose();
     observationController.dispose();
@@ -755,25 +684,6 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
                     'Camion : ${equipement.camionMatricule}',
                   ),
 
-                  if (equipement.imei.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'IMEI : ${equipement.imei}',
-                    ),
-                  ],
-
-                  if (equipement.fabricant.isNotEmpty ||
-                      equipement.modele.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      [
-                        if (equipement.fabricant.isNotEmpty)
-                          equipement.fabricant,
-                        if (equipement.modele.isNotEmpty)
-                          equipement.modele,
-                      ].join(' - '),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -1059,7 +969,7 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Rechercher',
                         hintText:
-                        'N° série, type, IMEI, camion...',
+                        'N° série, type, camion...',
                         prefixIcon: Icon(Icons.search),
                         border: OutlineInputBorder(),
                       ),
@@ -1228,4 +1138,1345 @@ class _EquipementsScreenState extends State<EquipementsScreen> {
       ),
     );
   }
+}*/
+
+import 'dart:typed_data';
+
+import 'package:excel/excel.dart' hide Border;
+import 'package:file_saver/file_saver.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../models/equipement_model.dart';
+import '../../models/camion_model.dart';
+import '../../services/equipement_service.dart';
+import '../../services/camion_service.dart';
+import '../../providers/auth_provider.dart';
+import '../../widgets/sidebar_admin.dart';
+
+class EquipementsScreen extends StatefulWidget {
+  const EquipementsScreen({
+    super.key,
+  });
+
+  @override
+  State<EquipementsScreen> createState() => _EquipementsScreenState();
 }
+
+class _EquipementsScreenState extends State<EquipementsScreen> {
+  final EquipementService _equipementService = EquipementService();
+  final CamionService _camionService = CamionService();
+
+  List<EquipementModel> _equipements = [];
+  List<Camion> _camions = [];
+
+  bool _isLoading = true;
+  bool _isExporting = false;
+  String? _error;
+
+  String _recherche = '';
+  String _statutFiltre = 'Tous';
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _chargerDonnees();
+    });
+  }
+
+  // ============================================================
+  // CHARGEMENT
+  // ============================================================
+
+  Future<void> _chargerDonnees() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final auth = context.read<AuthProvider>();
+
+      final token = auth.token;
+
+      final results = await Future.wait([
+        _equipementService.getEquipements(
+          token: token,
+        ),
+        _camionService.getCamions(
+          token: token,
+        ),
+      ]);
+
+      if (!mounted) return;
+
+      setState(() {
+        _equipements = results[0] as List<EquipementModel>;
+        _camions = results[1] as List<Camion>;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _error = e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        );
+      });
+    }
+  }
+
+  // ============================================================
+  // FILTRAGE
+  // ============================================================
+
+  List<EquipementModel> get _equipementsFiltres {
+    return _equipements.where((equipement) {
+      final recherche = _recherche.toLowerCase().trim();
+
+      final correspondRecherche =
+          recherche.isEmpty ||
+              equipement.type.toLowerCase().contains(recherche) ||
+              equipement.numeroSerie.toLowerCase().contains(recherche) ||
+              equipement.camionMatricule.toLowerCase().contains(recherche) ||
+              equipement.camionNom.toLowerCase().contains(recherche);
+
+      final correspondStatut =
+          _statutFiltre == 'Tous' ||
+              equipement.statut == _statutFiltre;
+
+      return correspondRecherche && correspondStatut;
+    }).toList();
+  }
+
+  int _nombreParStatut(String statut) {
+    return _equipements.where(
+          (e) => e.statut == statut,
+    ).length;
+  }
+
+  // ============================================================
+  // EXPORT EXCEL
+  // ============================================================
+
+  Future<void> _exporterExcel() async {
+    if (_equipements.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucun équipement à exporter.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final excel = Excel.createExcel();
+
+      const nomFeuille = 'Equipements';
+      final feuilleParDefaut = excel.getDefaultSheet();
+
+      if (feuilleParDefaut != null) {
+        excel.rename(feuilleParDefaut, nomFeuille);
+      }
+
+      final sheet = excel[nomFeuille];
+
+      final entetes = <String>[
+        'Type',
+        'N° de série',
+        'IMEI',
+        'Fabricant',
+        'Modèle',
+        'Version firmware',
+        'Statut',
+        'Camion (marque / modèle)',
+        'Matricule du camion',
+        'Date d\'installation',
+        'Dernier contrôle',
+        'Observation',
+      ];
+
+      sheet.appendRow(
+        entetes.map<CellValue?>((e) => TextCellValue(e)).toList(),
+      );
+
+      final styleEntete = CellStyle(
+        bold: true,
+        fontColorHex: ExcelColor.fromHexString('#FFFFFF'),
+        backgroundColorHex: ExcelColor.fromHexString('#1D3557'),
+      );
+
+      for (var i = 0; i < entetes.length; i++) {
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0))
+            .cellStyle = styleEntete;
+        sheet.setColumnWidth(i, 24);
+      }
+
+      for (final e in _equipements) {
+        sheet.appendRow(<CellValue?>[
+          TextCellValue(e.type),
+          TextCellValue(e.numeroSerie),
+          TextCellValue(e.imei),
+          TextCellValue(e.fabricant),
+          TextCellValue(e.modele),
+          TextCellValue(e.versionFirmware),
+          TextCellValue(_statutLabel(e.statut)),
+          TextCellValue(e.estNonAffecte ? 'Non affecté' : e.camionNom),
+          TextCellValue(e.estNonAffecte ? '' : e.camionMatricule),
+          TextCellValue(_dateAffichee(e.dateInstallation)),
+          TextCellValue(_dateAffichee(e.dateDernierControle)),
+          TextCellValue(e.observation),
+        ]);
+      }
+
+      final bytes = excel.save();
+
+      if (bytes == null) {
+        throw Exception('Impossible de générer le fichier Excel.');
+      }
+
+      final maintenant = DateTime.now();
+      String p(int n) => n.toString().padLeft(2, '0');
+      final nomFichier =
+          'equipements_${maintenant.year}-${p(maintenant.month)}-${p(maintenant.day)}';
+
+      await FileSaver.instance.saveFile(
+        name: nomFichier,
+        bytes: Uint8List.fromList(bytes),
+        ext: 'xlsx',
+        mimeType: MimeType.microsoftExcel,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${_equipements.length} équipement(s) exporté(s) vers Excel.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Échec de l\'export : ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
+  // SUPPRESSION
+  // ============================================================
+
+  Future<void> _supprimer(
+      EquipementModel equipement,
+      ) async {
+    final confirmation = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'Supprimer l’équipement',
+          ),
+          content: Text(
+            'Voulez-vous vraiment supprimer '
+                'l’équipement ${equipement.numeroSerie} ?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
+              },
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Supprimer'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmation != true) {
+      return;
+    }
+
+    try {
+      if (!mounted) return;
+
+      final auth = context.read<AuthProvider>();
+
+      await _equipementService.deleteEquipement(
+        equipement.id,
+        token: auth.token,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Équipement supprimé avec succès.',
+          ),
+        ),
+      );
+
+      await _chargerDonnees();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst(
+              'Exception: ',
+              '',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  // ============================================================
+  // AJOUT / MODIFICATION
+  // ============================================================
+
+  Future<void> _ajouterEquipement() async {
+    await _ouvrirFormulaire();
+  }
+
+  Future<void> _modifierEquipement(
+      EquipementModel equipement,
+      ) async {
+    await _ouvrirFormulaire(
+      equipement: equipement,
+    );
+  }
+
+  // ============================================================
+  // FORMULAIRE
+  // ============================================================
+
+  Future<void> _ouvrirFormulaire({
+    EquipementModel? equipement,
+  }) async {
+    final bool isEdition = equipement != null;
+
+    final formKey = GlobalKey<FormState>();
+
+    final typeController = TextEditingController(
+      text: equipement?.type ?? '',
+    );
+
+    final numeroSerieController = TextEditingController(
+      text: equipement?.numeroSerie ?? '',
+    );
+
+    final dateInstallationController = TextEditingController(
+      text: equipement?.dateInstallation ?? '',
+    );
+
+    final dateControleController = TextEditingController(
+      text: equipement?.dateDernierControle ?? '',
+    );
+
+    final observationController = TextEditingController(
+      text: equipement?.observation ?? '',
+    );
+
+    String statut = equipement?.statut ?? 'actif';
+
+    int? camionId = equipement?.camionId;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        bool isSaving = false;
+
+        return StatefulBuilder(
+          builder: (
+              context,
+              setDialogState,
+              ) {
+            Future<void> enregistrer() async {
+              if (!formKey.currentState!.validate()) {
+                return;
+              }
+
+              setDialogState(() {
+                isSaving = true;
+              });
+
+              try {
+                final auth = this.context.read<AuthProvider>();
+
+                if (isEdition) {
+                  await _equipementService.updateEquipement(
+                    id: equipement.id,
+                    type: typeController.text.trim(),
+                    numeroSerie: numeroSerieController.text.trim(),
+                    camionId: camionId,
+                    statut: statut,
+                    dateInstallation:
+                    dateInstallationController.text.trim(),
+                    dateDernierControle:
+                    dateControleController.text.trim(),
+                    observation: observationController.text.trim(),
+                    token: auth.token,
+                  );
+                } else {
+                  await _equipementService.createEquipement(
+                    type: typeController.text.trim(),
+                    numeroSerie: numeroSerieController.text.trim(),
+                    camionId: camionId,
+                    statut: statut,
+                    dateInstallation:
+                    dateInstallationController.text.trim(),
+                    dateDernierControle:
+                    dateControleController.text.trim(),
+                    observation: observationController.text.trim(),
+                    token: auth.token,
+                  );
+                }
+
+                if (!mounted || !dialogContext.mounted) return;
+
+                Navigator.of(dialogContext).pop();
+
+                if (!mounted) return;
+
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isEdition
+                          ? 'Équipement modifié avec succès.'
+                          : 'Équipement ajouté avec succès.',
+                    ),
+                  ),
+                );
+
+                await _chargerDonnees();
+              } catch (e) {
+                if (!mounted || !dialogContext.mounted) return;
+
+                setDialogState(() {
+                  isSaving = false;
+                });
+
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      e.toString().replaceFirst(
+                        'Exception: ',
+                        '',
+                      ),
+                    ),
+                  ),
+                );
+              }
+            }
+
+            return AlertDialog(
+              title: Text(
+                isEdition
+                    ? 'Modifier l’équipement'
+                    : 'Ajouter un équipement',
+              ),
+              content: SizedBox(
+                width: 650,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _champ(
+                                controller: typeController,
+                                label: 'Type',
+                                icon: Icons.devices,
+                                requiredField: true,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _champ(
+                                controller: numeroSerieController,
+                                label: 'Numéro de série',
+                                icon: Icons.numbers,
+                                requiredField: true,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        DropdownButtonFormField<int?>(
+                          initialValue: camionId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Camion associé',
+                            prefixIcon: Icon(
+                              Icons.local_shipping,
+                            ),
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            const DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text('Non affecté'),
+                            ),
+                            ..._camions.map(
+                                  (camion) {
+                                final nom = [
+                                  camion.marque,
+                                  camion.modele,
+                                ]
+                                    .where((s) => s != null && s.isNotEmpty)
+                                    .join(' ');
+
+                                return DropdownMenuItem<int?>(
+                                  value: camion.id,
+                                  child: Text(
+                                    nom.isEmpty
+                                        ? camion.matricule
+                                        : '$nom - ${camion.matricule}',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                          onChanged: isSaving
+                              ? null
+                              : (value) {
+                            setDialogState(() {
+                              camionId = value;
+                            });
+                          },
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child:
+                              DropdownButtonFormField<String>(
+                                initialValue: statut,
+                                decoration: const InputDecoration(
+                                  labelText: 'Statut',
+                                  prefixIcon: Icon(
+                                    Icons.verified,
+                                  ),
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'actif',
+                                    child: Text('Actif'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'en_panne',
+                                    child: Text('En panne'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'a_remplacer',
+                                    child: Text('À remplacer'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'maintenance',
+                                    child: Text('Maintenance'),
+                                  ),
+                                ],
+                                onChanged: isSaving
+                                    ? null
+                                    : (value) {
+                                  if (value != null) {
+                                    setDialogState(() {
+                                      statut = value;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _champ(
+                                controller:
+                                dateInstallationController,
+                                label: 'Date installation',
+                                icon: Icons.calendar_today,
+                                hint: 'YYYY-MM-DD',
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        _champ(
+                          controller: dateControleController,
+                          label: 'Date dernier contrôle',
+                          icon: Icons.fact_check,
+                          hint: 'YYYY-MM-DD',
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        _champ(
+                          controller: observationController,
+                          label: 'Observation',
+                          icon: Icons.notes,
+                          maxLines: 3,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () {
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Fermer'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isSaving ? null : enregistrer,
+                  icon: isSaving
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Icon(Icons.save),
+                  label: Text(
+                    isSaving
+                        ? 'Enregistrement...'
+                        : 'Enregistrer',
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    typeController.dispose();
+    numeroSerieController.dispose();
+    dateInstallationController.dispose();
+    dateControleController.dispose();
+    observationController.dispose();
+  }
+
+  // ============================================================
+  // CHAMP
+  // ============================================================
+
+  Widget _champ({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool requiredField = false,
+    String? hint,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon),
+        border: const OutlineInputBorder(),
+      ),
+      validator: requiredField
+          ? (value) {
+        if (value == null || value.trim().isEmpty) {
+          return '$label est obligatoire';
+        }
+
+        return null;
+      }
+          : null,
+    );
+  }
+
+  // ============================================================
+  // STATUT : COULEUR / LABEL
+  // ============================================================
+
+  Color _statutColor(String statut) {
+    switch (statut) {
+      case 'actif':
+        return Colors.green;
+
+      case 'en_panne':
+        return Colors.red;
+
+      case 'a_remplacer':
+        return Colors.orange;
+
+      case 'maintenance':
+        return Colors.blue;
+
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _statutLabel(String statut) {
+    switch (statut) {
+      case 'actif':
+        return 'Actif';
+
+      case 'en_panne':
+        return 'En panne';
+
+      case 'a_remplacer':
+        return 'À remplacer';
+
+      case 'maintenance':
+        return 'Maintenance';
+
+      default:
+        return statut;
+    }
+  }
+
+  /// Convertit 'YYYY-MM-DD' en 'jj/mm/aaaa' ('-' si vide ou invalide).
+  String _dateAffichee(String valeur) {
+    if (valeur.trim().isEmpty) return '-';
+    return formatDateFr(DateTime.tryParse(valeur));
+  }
+
+  // ============================================================
+  // BADGE
+  // ============================================================
+
+  Widget _statutBadge(String statut) {
+    final color = _statutColor(statut);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        _statutLabel(statut),
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // TABLEAU DES ÉQUIPEMENTS (avec entête)
+  // ============================================================
+
+  Widget _buildTable(List<EquipementModel> liste) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: constraints.maxWidth,
+              ),
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(
+                  const Color(0xFF1D3557),
+                ),
+                headingTextStyle: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                headingRowHeight: 52,
+                dataRowMinHeight: 56,
+                dataRowMaxHeight: 64,
+                columnSpacing: 28,
+                columns: const [
+                  DataColumn(label: Text('Type')),
+                  DataColumn(label: Text('N° de série')),
+                  DataColumn(label: Text('Camion')),
+                  DataColumn(label: Text('Matricule')),
+                  DataColumn(label: Text('Statut')),
+                  DataColumn(label: Text('Installation')),
+                  DataColumn(label: Text('Dernier contrôle')),
+                  DataColumn(label: Text('Actions')),
+                ],
+                rows: liste.map(_equipementRow).toList(),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  DataRow _equipementRow(EquipementModel equipement) {
+    final color = _statutColor(equipement.statut);
+
+    return DataRow(
+      cells: [
+        // Type
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.devices,
+                color: color,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                equipement.type,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // N° de série
+        DataCell(Text(equipement.numeroSerie)),
+
+        // Camion associé (marque + modèle)
+        DataCell(
+          equipement.estNonAffecte
+              ? const Text(
+            'Non affecté',
+            style: TextStyle(
+              color: Colors.grey,
+              fontStyle: FontStyle.italic,
+            ),
+          )
+              : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.local_shipping,
+                size: 18,
+                color: Color(0xFF1D3557),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                equipement.camionNom.isEmpty
+                    ? '-'
+                    : equipement.camionNom,
+              ),
+            ],
+          ),
+        ),
+
+        // Matricule du camion
+        DataCell(
+          Text(
+            equipement.estNonAffecte
+                ? '-'
+                : equipement.camionMatricule,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+
+        // Statut
+        DataCell(_statutBadge(equipement.statut)),
+
+        // Dates
+        DataCell(Text(_dateAffichee(equipement.dateInstallation))),
+        DataCell(Text(_dateAffichee(equipement.dateDernierControle))),
+
+        // Actions
+        DataCell(
+          PopupMenuButton<String>(
+            tooltip: 'Actions',
+            onSelected: (value) {
+              if (value == 'modifier') {
+                _modifierEquipement(equipement);
+              }
+
+              if (value == 'supprimer') {
+                _supprimer(equipement);
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'modifier',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit),
+                    SizedBox(width: 8),
+                    Text('Modifier'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'supprimer',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.delete,
+                      color: Colors.red,
+                    ),
+                    SizedBox(width: 8),
+                    Text('Supprimer'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // CARTE STATISTIQUE
+  // ============================================================
+
+  Widget _statCard({
+    required String titre,
+    required String valeur,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 45,
+                height: 45,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titre,
+                    style: const TextStyle(
+                      color: Colors.grey,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    valeur,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // CONTENU PRINCIPAL
+  // ============================================================
+
+  Widget _buildContent() {
+    final liste = _equipementsFiltres;
+
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 50,
+            ),
+
+            const SizedBox(height: 12),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+              ),
+              child: Text(
+                _error!,
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            ElevatedButton.icon(
+              onPressed: _chargerDonnees,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _chargerDonnees,
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          // ======================================================
+          // TITRE + ACTIONS
+          // ======================================================
+
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gestion des équipements',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    SizedBox(height: 6),
+
+                    Text(
+                      'Gérez les équipements installés sur les camions.',
+                      style: TextStyle(
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              OutlinedButton.icon(
+                onPressed: _isExporting ? null : _exporterExcel,
+                icon: _isExporting
+                    ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                  ),
+                )
+                    : const Icon(Icons.table_view),
+                label: Text(
+                  _isExporting ? 'Export...' : 'Exporter Excel',
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              ElevatedButton.icon(
+                onPressed: _ajouterEquipement,
+                icon: const Icon(Icons.add),
+                label: const Text('Ajouter'),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // ======================================================
+          // STATISTIQUES
+          // ======================================================
+
+          Row(
+            children: [
+              _statCard(
+                titre: 'Total',
+                valeur: '${_equipements.length}',
+                icon: Icons.devices,
+                color: Colors.blue,
+              ),
+
+              const SizedBox(width: 12),
+
+              _statCard(
+                titre: 'Actifs',
+                valeur: '${_nombreParStatut('actif')}',
+                icon: Icons.check_circle,
+                color: Colors.green,
+              ),
+
+              const SizedBox(width: 12),
+
+              _statCard(
+                titre: 'En panne',
+                valeur: '${_nombreParStatut('en_panne')}',
+                icon: Icons.error,
+                color: Colors.red,
+              ),
+
+              const SizedBox(width: 12),
+
+              _statCard(
+                titre: 'À remplacer',
+                valeur: '${_nombreParStatut('a_remplacer')}',
+                icon: Icons.warning,
+                color: Colors.orange,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // ======================================================
+          // FILTRES
+          // ======================================================
+
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Rechercher',
+                        hintText:
+                        'N° série, type, camion, matricule...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _recherche = value;
+                        });
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _statutFiltre,
+                      decoration: const InputDecoration(
+                        labelText: 'Statut',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Tous',
+                          child: Text('Tous'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'actif',
+                          child: Text('Actif'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'en_panne',
+                          child: Text('En panne'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'a_remplacer',
+                          child: Text('À remplacer'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'maintenance',
+                          child: Text('Maintenance'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+
+                        setState(() {
+                          _statutFiltre = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ======================================================
+          // LISTE (TABLEAU AVEC ENTÊTE)
+          // ======================================================
+
+          if (liste.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.devices_other,
+                      size: 60,
+                      color: Colors.grey.shade400,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    const Text(
+                      'Aucun équipement',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    const Text(
+                      'Aucun équipement ne correspond aux filtres.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            _buildTable(liste),
+
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SidebarAdmin(
+            selectedIndex: 4,
+          ),
+
+          Expanded(
+            child: Scaffold(
+              backgroundColor: const Color(0xFFF5F7FA),
+
+              appBar: AppBar(
+                elevation: 0,
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF1D3557),
+                title: const Text(
+                  'Équipements',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: 'Actualiser',
+                    onPressed:
+                    _isLoading ? null : _chargerDonnees,
+                    icon: const Icon(Icons.refresh),
+                  ),
+
+                  const SizedBox(width: 10),
+                ],
+              ),
+
+              floatingActionButton:
+              FloatingActionButton.extended(
+                onPressed: _ajouterEquipement,
+                icon: const Icon(Icons.add),
+                label: const Text('Ajouter'),
+              ),
+
+              body: _buildContent(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

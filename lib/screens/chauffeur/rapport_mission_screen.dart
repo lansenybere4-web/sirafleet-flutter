@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -8,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/rapport_mission_service.dart';
 
@@ -42,7 +44,6 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
   // ============================================================
 
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _distanceController = TextEditingController();
   final TextEditingController _incidentController = TextEditingController();
   final TextEditingController _commentaireController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
@@ -51,7 +52,6 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
   // ETAT
   // ============================================================
 
-  double niveauCarburant = 50;
   String etatCamion = 'RAS';
   bool incidentSignale = false;
   bool certifieExact = false;
@@ -62,29 +62,66 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
 
   Map<String, dynamic>? rapportEnvoye;
 
+  // Données automatiques (distance GPS, carburant, images conversation)
+  Map<String, dynamic>? _auto;
+  bool _autoLoading = true;
+  String? _autoError;
+  List<String> _autoImageUrls = [];
+
   @override
   void initState() {
     super.initState();
-
-    final distance = widget.mission['distance'];
-    if (distance != null) {
-      final match = RegExp(r'[\d.]+').firstMatch(distance.toString());
-      if (match != null) _distanceController.text = match.group(0)!;
-    }
-
-    final carburant = widget.mission['niveauCarburant'];
-    if (carburant != null) {
-      final valeur = double.tryParse(carburant.toString());
-      if (valeur != null) niveauCarburant = valeur.clamp(0, 100);
-    }
+    _chargerDonneesAuto();
   }
 
   @override
   void dispose() {
-    _distanceController.dispose();
     _incidentController.dispose();
     _commentaireController.dispose();
     super.dispose();
+  }
+
+  // ============================================================
+  // DONNÉES AUTOMATIQUES (équipement + conversation)
+  // ============================================================
+
+  Future<void> _chargerDonneesAuto() async {
+    final token = context.read<AuthProvider>().token;
+    final missionId = int.tryParse(widget.mission['id'].toString());
+
+    if (token == null || token.isEmpty || missionId == null) {
+      setState(() {
+        _autoLoading = false;
+        _autoError = 'Impossible de charger les données automatiques.';
+      });
+      return;
+    }
+
+    setState(() {
+      _autoLoading = true;
+      _autoError = null;
+    });
+
+    try {
+      final data = await RapportMissionService(token: token)
+          .apercuAutomatique(missionId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _auto = data;
+        _autoImageUrls = ((data['images'] as List?) ?? [])
+            .map((p) => '${AppConstants.mediaBaseUrl}/api/media/$p')
+            .toList();
+        _autoLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _autoError = e.toString().replaceFirst('Exception: ', '');
+        _autoLoading = false;
+      });
+    }
   }
 
   String get _numeroRapport {
@@ -94,7 +131,7 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
   }
 
   // ============================================================
-  // PHOTOS — sélection
+  // PHOTOS — sélection (photos manuelles, optionnelles)
   // ============================================================
 
   Future<void> _ajouterPhoto(ImageSource source) async {
@@ -223,9 +260,7 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
                         const SizedBox(height: 20),
                         _numberedSection('2', 'DONNÉES KILOMÉTRIQUES ET CARBURANT'),
                         const SizedBox(height: 10),
-                        _distanceField(),
-                        const SizedBox(height: 16),
-                        _fuelField(),
+                        _autoDataBlock(),
                         const SizedBox(height: 20),
                         _numberedSection('3', 'ÉTAT DU VÉHICULE À L\'ARRIVÉE'),
                         const SizedBox(height: 10),
@@ -477,66 +512,89 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
   }
 
   // ============================================================
-  // DISTANCE
+  // DISTANCE + CARBURANT (automatiques, lecture seule)
   // ============================================================
 
-  Widget _distanceField() {
-    return TextFormField(
-      controller: _distanceController,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-      decoration: _inputDecoration(
-        label: 'Distance réelle parcourue',
-        hint: 'Exemple : 125.5',
-        icon: Icons.speed_outlined,
-        suffix: 'km',
-      ),
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) return 'Indique la distance parcourue';
-        final distance = double.tryParse(value.trim().replaceAll(',', '.'));
-        if (distance == null || distance < 0) return 'Distance invalide';
-        return null;
-      },
-    );
-  }
+  Widget _autoDataBlock() {
+    if (_autoLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-  // ============================================================
-  // CARBURANT
-  // ============================================================
-
-  Widget _fuelField() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
+    if (_autoError != null) {
+      return Row(
         children: [
-          Row(
-            children: [
-              const Icon(Icons.local_gas_station, color: accentColor, size: 22),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text('Niveau de carburant après la mission',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              ),
-              Text('${niveauCarburant.round()}%',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor)),
-            ],
+          Expanded(
+            child: Text(
+              _autoError!,
+              style: const TextStyle(color: dangerColor, fontSize: 12),
+            ),
           ),
-          Slider(
-            value: niveauCarburant,
-            min: 0,
-            max: 100,
-            divisions: 20,
-            activeColor: accentColor,
-            label: '${niveauCarburant.round()}%',
-            onChanged: (value) => setState(() => niveauCarburant = value),
+          TextButton(
+            onPressed: _chargerDonneesAuto,
+            child: const Text('Réessayer'),
           ),
         ],
-      ),
+      );
+    }
+
+    final distance = _auto?['distance'];
+    final carburant = _auto?['carburant'];
+
+    Widget tile(IconData icon, String label, String value) {
+      return Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            border: Border.all(color: borderColor),
+            borderRadius: BorderRadius.circular(8),
+            color: const Color(0xFFFAFBFC),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: accentColor, size: 20),
+              const SizedBox(height: 6),
+              Text(label,
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            tile(
+              Icons.speed_outlined,
+              'Distance parcourue',
+              distance != null ? '$distance km' : 'Non disponible',
+            ),
+            const SizedBox(width: 10),
+            tile(
+              Icons.local_gas_station,
+              'Carburant restant',
+              carburant != null ? '$carburant %' : 'Non disponible',
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Valeurs relevées automatiquement par l\'équipement embarqué du camion.',
+          style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600),
+        ),
+      ],
     );
   }
 
@@ -678,11 +736,46 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Joins une photo de l\'état du camion, d\'un incident ou d\'une preuve de livraison. '
-              'Ces photos seront visibles par le responsable dans son rapport. (6 max)',
+          'Les images envoyées dans la conversation avec le responsable sont ajoutées '
+              'automatiquement. Tu peux aussi joindre des photos supplémentaires (6 max).',
           style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 12),
+        if (_autoImageUrls.isNotEmpty) ...[
+          Text(
+            'Images de la conversation (${_autoImageUrls.length}) :',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: _autoImageUrls
+                .map(
+                  (url) => ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  url,
+                  width: 88,
+                  height: 88,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stack) => Container(
+                    width: 88,
+                    height: 88,
+                    color: backgroundColor,
+                    child: const Icon(Icons.broken_image_outlined,
+                        color: Colors.grey),
+                  ),
+                ),
+              ),
+            )
+                .toList(),
+          ),
+          const SizedBox(height: 14),
+        ],
         Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -699,6 +792,7 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
     final bytes = _photoBytesCache[photo.path];
 
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         Container(
           width: 88,
@@ -913,6 +1007,19 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
   // ENVOI
   // ============================================================
 
+  /// Données du rapport telles qu'elles sont connues localement
+  /// (avant/après envoi) — utilisées pour l'aperçu et le PDF.
+  Map<String, dynamic> _donneesLocales() {
+    return {
+      'distance_reelle': _auto?['distance'],
+      'niveau_carburant': _auto?['carburant'],
+      'etat_camion': etatCamion,
+      'incident_signale': incidentSignale,
+      'incident_description': _incidentController.text.trim(),
+      'commentaire': _commentaireController.text.trim(),
+    };
+  }
+
   Future<void> _submitReport() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -962,12 +1069,6 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
       return;
     }
 
-    final distance = double.tryParse(_distanceController.text.trim().replaceAll(',', '.'));
-    if (distance == null || distance < 0) {
-      _showMessage('Distance parcourue invalide.', dangerColor);
-      return;
-    }
-
     setState(() => envoiEnCours = true);
 
     try {
@@ -975,8 +1076,6 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
 
       final resultat = await service.envoyerRapport(
         missionId: missionId,
-        distanceReelle: distance,
-        niveauCarburant: niveauCarburant.round(),
         etatCamion: etatCamion,
         incidentSignale: incidentSignale,
         incidentDescription: incidentSignale ? _incidentController.text.trim() : null,
@@ -988,14 +1087,18 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
 
       if (!mounted) return;
 
+      final serveur = resultat['data'] is Map
+          ? Map<String, dynamic>.from(resultat['data'] as Map)
+          : <String, dynamic>{};
+
       setState(() {
         rapportEnvoye = {
-          'distance_reelle': distance,
-          'niveau_carburant': niveauCarburant.round(),
-          'etat_camion': etatCamion,
-          'incident_signale': incidentSignale,
-          'incident_description': _incidentController.text.trim(),
-          'commentaire': _commentaireController.text.trim(),
+          ..._donneesLocales(),
+          // Les valeurs enregistrées par le serveur ont la priorité
+          if (serveur['distance_reelle'] != null)
+            'distance_reelle': serveur['distance_reelle'],
+          if (serveur['niveau_carburant'] != null)
+            'niveau_carburant': serveur['niveau_carburant'],
         };
       });
 
@@ -1045,27 +1148,35 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
     final nomChauffeur =
     currentUser != null ? '${currentUser.prenom} ${currentUser.nom}'.trim() : 'Chauffeur';
 
-    final r = rapportEnvoye ??
-        {
-          'distance_reelle':
-          double.tryParse(_distanceController.text.replaceAll(',', '.')) ?? 0,
-          'niveau_carburant': niveauCarburant.round(),
-          'etat_camion': etatCamion,
-          'incident_signale': incidentSignale,
-          'incident_description': _incidentController.text.trim(),
-          'commentaire': _commentaireController.text.trim(),
-        };
+    final r = rapportEnvoye ?? _donneesLocales();
+
+    final distanceTxt =
+    r['distance_reelle'] != null ? '${r['distance_reelle']} km' : 'Non disponible';
+    final carburantTxt =
+    r['niveau_carburant'] != null ? '${r['niveau_carburant']}%' : 'Non disponible';
 
     final pdfPrimary = PdfColor.fromInt(0xFF1D3557);
     final pdfGrey = PdfColor.fromInt(0xFF6B7280);
     final pdfBorder = PdfColor.fromInt(0xFFD8DFE7);
 
-    // Les photos gardées en mémoire (cache local) sont intégrées telles
-    // quelles dans le PDF — pas besoin de retélécharger depuis le serveur.
+    // Photos manuelles (cache local) + images de la conversation
+    // (téléchargées depuis le serveur).
     final photoImages = <pw.MemoryImage>[];
+
     for (final photo in _photos) {
       final bytes = _photoBytesCache[photo.path];
       if (bytes != null) photoImages.add(pw.MemoryImage(bytes));
+    }
+
+    for (final url in _autoImageUrls) {
+      try {
+        final resp = await http.get(Uri.parse(url));
+        if (resp.statusCode == 200) {
+          photoImages.add(pw.MemoryImage(resp.bodyBytes));
+        }
+      } catch (_) {
+        // On ignore une image qui échoue à charger, sans bloquer l'impression.
+      }
     }
 
     doc.addPage(
@@ -1114,8 +1225,8 @@ class _RapportMissionScreenState extends State<RapportMissionScreen> {
           _pdfSectionTitle('2. Données kilométriques et carburant', pdfPrimary),
           pw.SizedBox(height: 6),
           _pdfInfoTable([
-            ['Distance parcourue', '${r['distance_reelle']} km'],
-            ['Carburant restant', '${r['niveau_carburant']}%'],
+            ['Distance parcourue', distanceTxt],
+            ['Carburant restant', carburantTxt],
           ], pdfBorder, pdfGrey),
           pw.SizedBox(height: 14),
           _pdfSectionTitle('3. État du véhicule', pdfPrimary),

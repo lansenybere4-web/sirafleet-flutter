@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../providers/auth_provider.dart';
-
 import '../../models/camion_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/camion_service.dart';
+import '../../widgets/camion_statut_badge.dart';
 import '../../widgets/sidebar_responsable.dart';
+import 'camion_detail_screen.dart';
 
 class CamionsScreen extends StatefulWidget {
   const CamionsScreen({super.key});
@@ -38,9 +40,10 @@ class _CamionsScreenState extends State<CamionsScreen> {
   // CONTROLES
   // ============================================================
 
-  final TextEditingController _searchController =
-  TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
+  /// 'Tous' | 'disponible' | 'en_mission' | 'maintenance' | 'en_panne'
+  /// (valeurs de Camion.statutAffiche)
   String _selectedStatus = 'Tous';
 
   // ============================================================
@@ -52,22 +55,39 @@ class _CamionsScreenState extends State<CamionsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  Timer? _refreshTimer;
+
   // ============================================================
-  // INIT
+  // INIT / DISPOSE
   // ============================================================
 
   @override
   void initState() {
     super.initState();
     _loadCamions();
+
+    // Rafraîchissement silencieux : l'état des camions (mission,
+    // maintenance, panne) reste à jour sans action manuelle.
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && !_isLoading) {
+        _loadCamions(silent: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
   }
 
   // ============================================================
   // CHARGEMENT API
   // ============================================================
 
-  Future<void> _loadCamions() async {
-    if (mounted) {
+  Future<void> _loadCamions({bool silent = false}) async {
+    if (!silent && mounted) {
       setState(() {
         _isLoading = true;
         _errorMessage = null;
@@ -80,23 +100,22 @@ class _CamionsScreenState extends State<CamionsScreen> {
       final token = authProvider.token;
 
       if (token == null || token.isEmpty) {
-        throw Exception(
-          'Session expirée. Veuillez vous reconnecter.',
-        );
+        throw Exception('Session expirée. Veuillez vous reconnecter.');
       }
 
-      final camions = await _camionService.getCamions(
-        token: token,
-      );
+      final camions = await _camionService.getCamions(token: token);
 
       if (!mounted) return;
 
       setState(() {
         _camions = camions;
         _isLoading = false;
+        _errorMessage = null;
       });
     } catch (e) {
       if (!mounted) return;
+
+      if (silent) return;
 
       setState(() {
         _isLoading = false;
@@ -106,19 +125,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
   }
 
   String _cleanError(Object error) {
-    return error
-        .toString()
-        .replaceFirst('Exception: ', '');
-  }
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+    return error.toString().replaceFirst('Exception: ', '');
   }
 
   // ============================================================
@@ -126,23 +133,19 @@ class _CamionsScreenState extends State<CamionsScreen> {
   // ============================================================
 
   List<Camion> get _filteredCamions {
-    final search = _searchController.text
-        .toLowerCase()
-        .trim();
+    final search = _searchController.text.toLowerCase().trim();
 
     return _camions.where((camion) {
       final matricule = camion.matricule.toLowerCase();
       final marque = (camion.marque ?? '').toLowerCase();
       final modele = (camion.modele ?? '').toLowerCase();
 
-      final matchesSearch =
-          matricule.contains(search) ||
-              marque.contains(search) ||
-              modele.contains(search);
+      final matchesSearch = matricule.contains(search) ||
+          marque.contains(search) ||
+          modele.contains(search);
 
       final matchesStatus =
-          _selectedStatus == 'Tous' ||
-              camion.statut == _selectedStatus;
+          _selectedStatus == 'Tous' || camion.statutAffiche == _selectedStatus;
 
       return matchesSearch && matchesStatus;
     }).toList();
@@ -184,9 +187,13 @@ class _CamionsScreenState extends State<CamionsScreen> {
                 _buildTopBar(),
 
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: _buildDesktopContent(),
+                  child: RefreshIndicator(
+                    onRefresh: () => _loadCamions(),
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(24),
+                      child: _buildDesktopContent(),
+                    ),
                   ),
                 ),
               ],
@@ -227,7 +234,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
             ),
           ],
         ),
-        actions: [
+        actions: const [
           SizedBox(width: 4),
         ],
       ),
@@ -289,7 +296,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
     final camions = _filteredCamions;
 
     return RefreshIndicator(
-      onRefresh: _loadCamions,
+      onRefresh: () => _loadCamions(),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
@@ -312,9 +319,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
               _buildEmptyState()
             else
               Column(
-                children: camions
-                    .map(_buildMobileCamionCard)
-                    .toList(),
+                children: camions.map(_buildMobileCamionCard).toList(),
               ),
           ],
         ),
@@ -333,9 +338,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFE5E7EB),
-          ),
+          bottom: BorderSide(color: Color(0xFFE5E7EB)),
         ),
       ),
       child: Row(
@@ -353,7 +356,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
 
           IconButton(
             tooltip: 'Actualiser',
-            onPressed: _loadCamions,
+            onPressed: () => _loadCamions(),
             icon: const Icon(
               Icons.refresh_rounded,
               color: Color(0xFF374151),
@@ -411,21 +414,17 @@ class _CamionsScreenState extends State<CamionsScreen> {
   Widget _buildSummaryCards() {
     final total = _camions.length;
 
-    final disponibles = _camions
-        .where((c) => c.statut == 'disponible')
-        .length;
+    final disponibles =
+        _camions.where((c) => c.statutAffiche == 'disponible').length;
 
-    final circulation = _camions
-        .where((c) => c.statut == 'en_circulation')
-        .length;
+    final enMission =
+        _camions.where((c) => c.statutAffiche == 'en_mission').length;
 
-    final incidents = _camions
-        .where(
-          (c) =>
-      c.statut == 'en_panne' ||
-          c.statut == 'maintenance',
-    )
-        .length;
+    final enMaintenance =
+        _camions.where((c) => c.statutAffiche == 'maintenance').length;
+
+    final enPanne =
+        _camions.where((c) => c.statutAffiche == 'en_panne').length;
 
     final cards = [
       _SummaryData(
@@ -441,33 +440,39 @@ class _CamionsScreenState extends State<CamionsScreen> {
         color: successColor,
       ),
       _SummaryData(
-        title: 'En circulation',
-        value: '$circulation',
+        title: 'En mission',
+        value: '$enMission',
         icon: Icons.route_rounded,
         color: infoColor,
       ),
       _SummaryData(
-        title: 'Panne / maintenance',
-        value: '$incidents',
+        title: 'En maintenance',
+        value: '$enMaintenance',
         icon: Icons.build_circle_rounded,
+        color: warningColor,
+      ),
+      _SummaryData(
+        title: 'En panne',
+        value: '$enPanne',
+        icon: Icons.warning_amber_rounded,
         color: dangerColor,
       ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1000
-            ? 4
-            : constraints.maxWidth >= 650
+        final columns = constraints.maxWidth >= 1250
+            ? 5
+            : constraints.maxWidth >= 800
+            ? 3
+            : constraints.maxWidth >= 500
             ? 2
             : 1;
 
         const spacing = 16.0;
 
         final width =
-            (constraints.maxWidth -
-                spacing * (columns - 1)) /
-                columns;
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
 
         return Wrap(
           spacing: spacing,
@@ -489,9 +494,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Row(
         children: [
@@ -510,8 +513,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
           const SizedBox(width: 14),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   data.title,
@@ -549,9 +551,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -567,14 +567,9 @@ class _CamionsScreenState extends State<CamionsScreen> {
 
           return Row(
             children: [
-              Expanded(
-                child: _buildSearchField(),
-              ),
+              Expanded(child: _buildSearchField()),
               const SizedBox(width: 15),
-              SizedBox(
-                width: 210,
-                child: _buildStatusDropdown(),
-              ),
+              SizedBox(width: 210, child: _buildStatusDropdown()),
             ],
           );
         },
@@ -593,14 +588,12 @@ class _CamionsScreenState extends State<CamionsScreen> {
         setState(() {});
       },
       decoration: InputDecoration(
-        hintText:
-        'Rechercher par matricule, marque ou modèle...',
+        hintText: 'Rechercher par matricule, marque ou modèle...',
         prefixIcon: const Icon(
           Icons.search_rounded,
           color: Color(0xFF6B7280),
         ),
-        suffixIcon:
-        _searchController.text.isNotEmpty
+        suffixIcon: _searchController.text.isNotEmpty
             ? IconButton(
           onPressed: () {
             _searchController.clear();
@@ -645,16 +638,16 @@ class _CamionsScreenState extends State<CamionsScreen> {
           child: Text('Disponible'),
         ),
         DropdownMenuItem(
-          value: 'en_circulation',
-          child: Text('En circulation'),
+          value: 'en_mission',
+          child: Text('En mission'),
+        ),
+        DropdownMenuItem(
+          value: 'maintenance',
+          child: Text('En maintenance'),
         ),
         DropdownMenuItem(
           value: 'en_panne',
           child: Text('En panne'),
-        ),
-        DropdownMenuItem(
-          value: 'maintenance',
-          child: Text('Maintenance'),
         ),
       ],
       onChanged: (value) {
@@ -678,9 +671,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         children: [
@@ -708,22 +699,20 @@ class _CamionsScreenState extends State<CamionsScreen> {
               ],
             ),
           ),
-          const Divider(
-            height: 1,
-            color: Color(0xFFE5E7EB),
-          ),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
           if (camions.isEmpty)
             _buildEmptyState()
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                headingRowColor:
-                WidgetStateProperty.all(
+                headingRowColor: WidgetStateProperty.all(
                   const Color(0xFFF9FAFB),
                 ),
                 columnSpacing: 30,
                 horizontalMargin: 20,
+                dataRowMinHeight: 56,
+                dataRowMaxHeight: 76,
                 columns: const [
                   DataColumn(label: Text('CAMION')),
                   DataColumn(label: Text('MARQUE')),
@@ -731,6 +720,8 @@ class _CamionsScreenState extends State<CamionsScreen> {
                   DataColumn(label: Text('ANNÉE')),
                   DataColumn(label: Text('STATUT')),
                   DataColumn(label: Text('KILOMÉTRAGE')),
+                  DataColumn(label: Text('MISSIONS')),
+                  DataColumn(label: Text('MAINTENANCES')),
                   DataColumn(label: Text('ACTIONS')),
                 ],
                 rows: camions.map((camion) {
@@ -743,10 +734,8 @@ class _CamionsScreenState extends State<CamionsScreen> {
                               width: 38,
                               height: 38,
                               decoration: BoxDecoration(
-                                color: primaryColor
-                                    .withValues(alpha: 0.08),
-                                borderRadius:
-                                BorderRadius.circular(10),
+                                color: primaryColor.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(
                                 Icons.local_shipping_rounded,
@@ -765,30 +754,24 @@ class _CamionsScreenState extends State<CamionsScreen> {
                           ],
                         ),
                       ),
+                      DataCell(Text(camion.marque ?? '-')),
+                      DataCell(Text(camion.modele ?? '-')),
+                      DataCell(Text(camion.annee?.toString() ?? '-')),
+                      DataCell(CamionStatutBadge(camion: camion)),
                       DataCell(
-                        Text(camion.marque ?? '-'),
-                      ),
-                      DataCell(
-                        Text(camion.modele ?? '-'),
-                      ),
-                      DataCell(
-                        Text(
-                          camion.annee?.toString() ?? '-',
-                        ),
-                      ),
-                      DataCell(
-                        _buildStatusBadge(camion.statut),
+                        Text('${_formatNumber(camion.kilometrage)} km'),
                       ),
                       DataCell(
                         Text(
-                          '${_formatNumber(camion.kilometrage)} km',
+                          '${camion.missionsCount} '
+                              '(${camion.missionsTerminees} term.)',
                         ),
                       ),
+                      DataCell(Text('${camion.maintenancesCount}')),
                       DataCell(
                         IconButton(
                           tooltip: 'Voir',
-                          onPressed: () =>
-                              _viewCamion(camion),
+                          onPressed: () => _viewCamion(camion),
                           icon: const Icon(
                             Icons.visibility_outlined,
                             size: 20,
@@ -816,9 +799,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -830,6 +811,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 48,
@@ -846,8 +828,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       camion.matricule,
@@ -859,8 +840,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${camion.marque ?? ''} ${camion.modele ?? ''}'
-                          .trim(),
+                      '${camion.marque ?? ''} ${camion.modele ?? ''}'.trim(),
                       style: const TextStyle(
                         color: Color(0xFF6B7280),
                         fontSize: 12,
@@ -869,7 +849,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
                   ],
                 ),
               ),
-              _buildStatusBadge(camion.statut),
+              CamionStatutBadge(camion: camion),
             ],
           ),
           const SizedBox(height: 16),
@@ -897,6 +877,18 @@ class _CamionsScreenState extends State<CamionsScreen> {
             Icons.speed_outlined,
             'Kilométrage',
             '${_formatNumber(camion.kilometrage)} km',
+          ),
+          const SizedBox(height: 10),
+          _buildMobileDetail(
+            Icons.route_outlined,
+            'Missions',
+            '${camion.missionsCount} (${camion.missionsTerminees} terminées)',
+          ),
+          const SizedBox(height: 10),
+          _buildMobileDetail(
+            Icons.build_outlined,
+            'Maintenances',
+            '${camion.maintenancesCount}',
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -952,60 +944,6 @@ class _CamionsScreenState extends State<CamionsScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  // ============================================================
-  // STATUS BADGE
-  // ============================================================
-
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    String label;
-
-    switch (status) {
-      case 'disponible':
-        color = successColor;
-        label = 'Disponible';
-        break;
-
-      case 'en_circulation':
-        color = infoColor;
-        label = 'En circulation';
-        break;
-
-      case 'en_panne':
-        color = dangerColor;
-        label = 'En panne';
-        break;
-
-      case 'maintenance':
-        color = warningColor;
-        label = 'Maintenance';
-        break;
-
-      default:
-        color = Colors.grey;
-        label = status;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 
@@ -1094,7 +1032,7 @@ class _CamionsScreenState extends State<CamionsScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: _loadCamions,
+              onPressed: () => _loadCamions(),
               icon: const Icon(Icons.refresh),
               label: const Text('Réessayer'),
               style: ElevatedButton.styleFrom(
@@ -1113,102 +1051,26 @@ class _CamionsScreenState extends State<CamionsScreen> {
   // ============================================================
 
   void _viewCamion(Camion camion) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            camion.matricule,
-            style: const TextStyle(
-              color: primaryColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
-            children: [
-              _detail('Matricule', camion.matricule),
-              _detail('Marque', camion.marque ?? '-'),
-              _detail('Modèle', camion.modele ?? '-'),
-              _detail(
-                'Année',
-                camion.annee?.toString() ?? '-',
-              ),
-              _detail(
-                'Kilométrage',
-                '${_formatNumber(camion.kilometrage)} km',
-              ),
-              _detail(
-                'Statut',
-                _statusLabel(camion.statut),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext),
-              child: const Text('Fermer'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _detail(
-      String label,
-      String value,
-      ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 105,
-            child: Text(
-              '$label :',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(value),
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CamionDetailScreen(
+          camionId: camion.id,
+          matricule: camion.matricule,
+        ),
       ),
-    );
+    ).then((_) {
+      // Au retour, on rafraîchit la liste (le statut a pu changer).
+      if (mounted) _loadCamions(silent: true);
+    });
   }
 
   // ============================================================
   // HELPERS
   // ============================================================
 
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'disponible':
-        return 'Disponible';
-      case 'en_circulation':
-        return 'En circulation';
-      case 'en_panne':
-        return 'En panne';
-      case 'maintenance':
-        return 'Maintenance';
-      default:
-        return status;
-    }
-  }
-
   String _formatNumber(double value) {
-    return value
-        .toStringAsFixed(2)
-        .replaceAll('.', ',');
+    return value.toStringAsFixed(2).replaceAll('.', ',');
   }
 }
 

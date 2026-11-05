@@ -1,1207 +1,13 @@
-/*import 'package:flutter/material.dart';
-
-class ProfilChauffeurScreen extends StatelessWidget {
-  final Map<String, dynamic> chauffeur;
-
-  const ProfilChauffeurScreen({
-    super.key,
-    required this.chauffeur,
-  });
-
-  // ============================================================
-  // COULEURS
-  // ============================================================
-
-  static const Color primaryColor = Color(0xFF1D3557);
-  static const Color accentColor = Color(0xFF2A9D8F);
-  static const Color dangerColor = Color(0xFFE63946);
-  static const Color warningColor = Color(0xFFF4A261);
-  static const Color backgroundColor = Color(0xFFF5F7FA);
-
-  @override
-  Widget build(BuildContext context) {
-    final statut =
-        chauffeur['statut']?.toString() ?? 'Disponible';
-
-    return Scaffold(
-      backgroundColor: backgroundColor,
-
-      // ========================================================
-      // APP BAR
-      // ========================================================
-
-      appBar: AppBar(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Profil chauffeur',
-          style: TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Options',
-            onPressed: () {
-              _showOptions(context);
-            },
-            icon: const Icon(Icons.more_vert),
-          ),
-        ],
-      ),
-
-      // ========================================================
-      // BODY
-      // ========================================================
-
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          18,
-          16,
-          30,
-        ),
-        child: Column(
-          children: [
-            _buildProfileHeader(statut),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // IDENTITÉ
-            // ==================================================
-
-            _buildSection(
-              title: 'Identité du chauffeur',
-              icon: Icons.person_outline,
-              children: [
-                _buildInfoRow(
-                  Icons.badge_outlined,
-                  'Matricule',
-                  chauffeur['id'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.person_outline,
-                  'Nom',
-                  chauffeur['nom'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.person_outline,
-                  'Prénom',
-                  chauffeur['prenom'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.phone_outlined,
-                  'Téléphone',
-                  chauffeur['telephone'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.email_outlined,
-                  'Adresse email',
-                  chauffeur['email'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.home_outlined,
-                  'Adresse',
-                  chauffeur['adresse'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.cake_outlined,
-                  'Date de naissance',
-                  chauffeur['dateNaissance'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.location_city_outlined,
-                  'Lieu de naissance',
-                  chauffeur['lieuNaissance'],
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // INFORMATIONS PROFESSIONNELLES
-            // ==================================================
-
-            _buildSection(
-              title: 'Informations professionnelles',
-              icon: Icons.work_outline,
-              children: [
-                _buildInfoRow(
-                  Icons.badge_outlined,
-                  'Matricule professionnel',
-                  chauffeur['id'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.credit_card_outlined,
-                  'Permis de conduire',
-                  chauffeur['permis'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.directions_car_outlined,
-                  'Catégorie du permis',
-                  chauffeur['categoriePermis'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.calendar_month_outlined,
-                  'Date d’embauche',
-                  chauffeur['dateEmbauche'],
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.work_history_outlined,
-                  'Statut professionnel',
-                  statut,
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // CAMION
-            // ==================================================
-
-            _buildSection(
-              title: 'Véhicule affecté',
-              icon: Icons.local_shipping_outlined,
-              children: [
-                _buildTruckCard(),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // STATISTIQUES
-            // ==================================================
-
-            _buildSection(
-              title: 'Statistiques',
-              icon: Icons.analytics_outlined,
-              children: [
-                _buildStatistics(),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // MISSIONS
-            // ==================================================
-
-            _buildSection(
-              title: 'Activité des missions',
-              icon: Icons.assignment_outlined,
-              children: [
-                _buildMissionSummary(context),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // SIGNALEMENTS
-            // ==================================================
-
-            _buildSection(
-              title: 'Signalements',
-              icon: Icons.warning_amber_outlined,
-              children: [
-                _buildSignalementSummary(context),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // ACTIONS
-            // ==================================================
-
-            _buildActions(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // HEADER PROFIL
-  // ============================================================
-
-  Widget _buildProfileHeader(String statut) {
-    final statusColor = _getStatusColor(statut);
-
-    final photo =
-        chauffeur['photo']?.toString() ?? '';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: primaryColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // PHOTO
-          Container(
-            width: 95,
-            height: 95,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              border: Border.all(
-                color: Colors.white,
-                width: 3,
-              ),
-            ),
-            child: ClipOval(
-              child: photo.isNotEmpty
-                  ? Image.network(
-                photo,
-                fit: BoxFit.cover,
-                errorBuilder:
-                    (_, __, ___) {
-                  return const Icon(
-                    Icons.person,
-                    color: primaryColor,
-                    size: 55,
-                  );
-                },
-              )
-                  : const Icon(
-                Icons.person,
-                color: primaryColor,
-                size: 55,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 13),
-
-          Text(
-            chauffeur['nomComplet'] ??
-                'Chauffeur',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 21,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          const Text(
-            'Chauffeur professionnel',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildHeaderBadge(
-                chauffeur['id'] ?? '—',
-              ),
-              _buildHeaderBadge(
-                statut,
-                color: statusColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderBadge(
-      String text, {
-        Color? color,
-      }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        color: color?.withValues(alpha: 0.25) ??
-            Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // SECTION
-  // ============================================================
-
-  Widget _buildSection({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color:
-            Colors.black.withValues(alpha: 0.035),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                color: primaryColor,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: primaryColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 13),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // INFO ROW
-  // ============================================================
-
-  Widget _buildInfoRow(
-      IconData icon,
-      String title,
-      dynamic value,
-      ) {
-    final displayValue =
-    value?.toString().trim().isNotEmpty == true
-        ? value.toString()
-        : 'Non renseigné';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 7,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 35,
-            height: 35,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius:
-              BorderRadius.circular(9),
-            ),
-            child: Icon(
-              icon,
-              color: Colors.grey.shade700,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 9,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  displayValue,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // CAMION
-  // ============================================================
-
-  Widget _buildTruckCard() {
-    final camion =
-        chauffeur['camion'] ?? 'Aucun camion';
-
-    final type =
-        chauffeur['typeCamion'] ??
-            'Type non renseigné';
-
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(13),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color:
-              primaryColor.withValues(alpha: 0.10),
-              borderRadius:
-              BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.local_shipping,
-              color: primaryColor,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
-              children: [
-                Text(
-                  camion.toString(),
-                  style: const TextStyle(
-                    color: primaryColor,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  type.toString(),
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Column(
-            crossAxisAlignment:
-            CrossAxisAlignment.end,
-            children: [
-              Icon(
-                Icons.check_circle,
-                color: accentColor,
-                size: 18,
-              ),
-              SizedBox(height: 3),
-              Text(
-                'Affecté',
-                style: TextStyle(
-                  color: accentColor,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-
-
-
-  // ============================================================
-  // STATISTIQUES
-  // ============================================================
-
-  Widget _buildStatistics() {
-    final total =
-    (chauffeur['missions'] ?? 0) as int;
-
-    final terminees =
-    (chauffeur['missionsTerminees'] ?? 0)
-    as int;
-
-    final signalements =
-    (chauffeur['signalements'] ?? 0) as int;
-
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatistic(
-            Icons.assignment_outlined,
-            '$total',
-            'Missions',
-            primaryColor,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildStatistic(
-            Icons.check_circle_outline,
-            '$terminees',
-            'Terminées',
-            accentColor,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildStatistic(
-            Icons.warning_amber_outlined,
-            '$signalements',
-            'Signalements',
-            signalements > 0
-                ? dangerColor
-                : Colors.grey,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatistic(
-      IconData icon,
-      String value,
-      String label,
-      Color color,
-      ) {
-    return Container(
-      padding:
-      const EdgeInsets.symmetric(vertical: 13),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: 20,
-          ),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 8,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // MISSIONS
-  // ============================================================
-
-  Widget _buildMissionSummary(
-      BuildContext context,
-      ) {
-    final total =
-    (chauffeur['missions'] ?? 0) as int;
-
-    final terminees =
-    (chauffeur['missionsTerminees'] ?? 0)
-    as int;
-
-    final enCours =
-    (total - terminees).clamp(0, total);
-
-    return Column(
-      children: [
-        _buildProgressRow(
-          title: 'Missions terminées',
-          value: terminees,
-          total: total,
-          color: accentColor,
-        ),
-
-        const SizedBox(height: 12),
-
-        _buildProgressRow(
-          title: 'Missions restantes',
-          value: enCours,
-          total: total,
-          color: warningColor,
-        ),
-
-        const SizedBox(height: 14),
-
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              _showMessage(
-                context,
-                'Historique des missions du chauffeur',
-              );
-            },
-            icon: const Icon(
-              Icons.history,
-              size: 18,
-            ),
-            label: const Text(
-              'Voir l’historique des missions',
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: primaryColor,
-              padding:
-              const EdgeInsets.symmetric(
-                vertical: 11,
-              ),
-              shape:
-              RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius.circular(10),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProgressRow({
-    required String title,
-    required int value,
-    required int total,
-    required Color color,
-  }) {
-    final progress = total == 0
-        ? 0.0
-        : (value / total).clamp(0.0, 1.0);
-
-    return Column(
-      crossAxisAlignment:
-      CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment:
-          MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              '$value / $total',
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius:
-          BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 7,
-            backgroundColor:
-            Colors.grey.shade200,
-            valueColor:
-            AlwaysStoppedAnimation<Color>(
-              color,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // SIGNALEMENTS
-  // ============================================================
-
-  Widget _buildSignalementSummary(
-      BuildContext context,
-      ) {
-    final total =
-    (chauffeur['signalements'] ?? 0) as int;
-
-    if (total == 0) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color:
-          accentColor.withValues(alpha: 0.08),
-          borderRadius:
-          BorderRadius.circular(12),
-        ),
-        child: const Row(
-          children: [
-            Icon(
-              Icons.check_circle,
-              color: accentColor,
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Aucun signalement enregistré.',
-                style: TextStyle(
-                  color: accentColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        _buildSignalementRow(
-          Icons.warning_amber_outlined,
-          'Signalements enregistrés',
-          '$total',
-          dangerColor,
-        ),
-
-        const SizedBox(height: 10),
-
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              _showMessage(
-                context,
-                'Historique des signalements',
-              );
-            },
-            icon: const Icon(
-              Icons.visibility_outlined,
-              size: 18,
-            ),
-            label: const Text(
-              'Voir les signalements',
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: dangerColor,
-              side: const BorderSide(
-                color: dangerColor,
-              ),
-              padding:
-              const EdgeInsets.symmetric(
-                vertical: 11,
-              ),
-              shape:
-              RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius.circular(10),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSignalementRow(
-      IconData icon,
-      String title,
-      String value,
-      Color color,
-      ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius:
-        BorderRadius.circular(11),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: 22,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // ACTIONS RESPONSABLE
-  // ============================================================
-
-  Widget _buildActions(
-      BuildContext context,
-      ) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {
-              _showMessage(
-                context,
-                'Ouverture du suivi GPS du chauffeur',
-              );
-            },
-            icon: const Icon(
-              Icons.location_on_outlined,
-              size: 18,
-            ),
-            label: const Text('Suivi GPS'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: primaryColor,
-              padding:
-              const EdgeInsets.symmetric(
-                vertical: 12,
-              ),
-              shape:
-              RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius.circular(11),
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _showContactDialog(context);
-            },
-            icon: const Icon(
-              Icons.phone_outlined,
-              size: 18,
-            ),
-            label: const Text('Contacter'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              padding:
-              const EdgeInsets.symmetric(
-                vertical: 12,
-              ),
-              shape:
-              RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius.circular(11),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // OPTIONS
-  // ============================================================
-
-  void _showOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape:
-      const RoundedRectangleBorder(
-        borderRadius:
-        BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.location_on_outlined,
-                  color: primaryColor,
-                ),
-                title: const Text(
-                  'Voir la position GPS',
-                ),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-
-                  _showMessage(
-                    context,
-                    'Suivi GPS du chauffeur',
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.history,
-                  color: primaryColor,
-                ),
-                title: const Text(
-                  'Voir l’historique',
-                ),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-
-                  _showMessage(
-                    context,
-                    'Historique du chauffeur',
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.close,
-                  color: Colors.grey,
-                ),
-                title: const Text('Fermer'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // CONTACT
-  // ============================================================
-
-  void _showContactDialog(
-      BuildContext context,
-      ) {
-    final telephone =
-        chauffeur['telephone'] ?? 'Non renseigné';
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text(
-            'Contacter le chauffeur',
-            style: TextStyle(
-              color: primaryColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment:
-            CrossAxisAlignment.start,
-            children: [
-              Text(
-                chauffeur['nomComplet'] ??
-                    'Chauffeur',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.phone_outlined,
-                    color: primaryColor,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    telephone.toString(),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Fermer'),
-            ),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-
-                _showMessage(
-                  context,
-                  'Appel vers $telephone',
-                );
-              },
-              icon: const Icon(
-                Icons.phone,
-                size: 17,
-              ),
-              label: const Text('Appeler'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // MESSAGE
-  // ============================================================
-
-  void _showMessage(
-      BuildContext context,
-      String message,
-      ) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          duration:
-          const Duration(seconds: 2),
-        ),
-      );
-  }
-
-  // ============================================================
-  // DIVIDER
-  // ============================================================
-
-  Widget _buildDivider() {
-    return Divider(
-      height: 1,
-      color: Colors.grey.shade200,
-    );
-  }
-
-  // ============================================================
-  // COULEUR STATUT
-  // ============================================================
-
-  Color _getStatusColor(String statut) {
-    switch (statut) {
-      case 'En mission':
-        return warningColor;
-
-      case 'En service':
-        return accentColor;
-
-      case 'Disponible':
-        return primaryColor;
-
-      case 'Repos':
-        return Colors.grey;
-
-      default:
-        return primaryColor;
-    }
-  }
-}*/
-
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/chauffeur_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/chauffeur_service.dart';
+import '../../widgets/chauffeur_pro_sections.dart';
+import '../../widgets/profile_widgets.dart';
+import '../../widgets/sidebar_responsable.dart';
 
 class ProfilChauffeurScreen extends StatefulWidget {
   final int chauffeurId;
@@ -1211,22 +17,21 @@ class ProfilChauffeurScreen extends StatefulWidget {
     required this.chauffeurId,
   });
 
-  // ============================================================
-  // COULEURS
-  // ============================================================
-
-  static const Color primaryColor = Color(0xFF1D3557);
-  static const Color accentColor = Color(0xFF2A9D8F);
-  static const Color dangerColor = Color(0xFFE63946);
-  static const Color warningColor = Color(0xFFF4A261);
-  static const Color backgroundColor = Color(0xFFF5F7FA);
-
   @override
   State<ProfilChauffeurScreen> createState() =>
       _ProfilChauffeurScreenState();
 }
 
 class _ProfilChauffeurScreenState extends State<ProfilChauffeurScreen> {
+  static const Color primaryColor = Color(0xFF1D3557);
+  static const Color accentColor = Color(0xFF2A9D8F);
+  static const Color dangerColor = Color(0xFFE63946);
+  static const Color warningColor = Color(0xFFF4A261);
+  static const Color backgroundColor = Color(0xFFF5F7FA);
+  static const Color textColor = Color(0xFF243247);
+  static const Color mutedColor = Color(0xFF718096);
+  static const Color borderColor = Color(0xFFE5EAF0);
+
   final ChauffeurService _chauffeurService = ChauffeurService();
 
   Chauffeur? _chauffeur;
@@ -1239,22 +44,19 @@ class _ProfilChauffeurScreenState extends State<ProfilChauffeurScreen> {
     _load();
   }
 
-  // ================================================================
-  // CHARGEMENT
-  // ================================================================
-
   Future<void> _load() async {
+    if (!mounted) return;
+
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final token =
-          Provider.of<AuthProvider>(context, listen: false).token;
+      final token = context.read<AuthProvider>().token;
 
       if (token == null || token.isEmpty) {
-        throw Exception('Session expirée, veuillez vous reconnecter.');
+        throw Exception('Session expirée. Veuillez vous reconnecter.');
       }
 
       final chauffeur = await _chauffeurService.getChauffeurById(
@@ -1280,75 +82,258 @@ class _ProfilChauffeurScreenState extends State<ProfilChauffeurScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ProfilChauffeurScreen.backgroundColor,
+    final c = _chauffeur;
 
-      // ========================================================
-      // APP BAR
-      // ========================================================
-
-      appBar: AppBar(
-        backgroundColor: ProfilChauffeurScreen.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Profil chauffeur',
-          style: TextStyle(
-            fontSize: 19,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          if (_chauffeur != null)
-            IconButton(
-              tooltip: 'Options',
-              onPressed: () {
-                _showOptions(context);
-              },
-              icon: const Icon(Icons.more_vert),
-            ),
-        ],
-      ),
-
-      // ========================================================
-      // BODY
-      // ========================================================
-
-      body: _buildBody(),
+    return ProfileShell(
+      title: 'Profil chauffeur',
+      subtitle: 'Informations et détails professionnels',
+      icon: Icons.badge_outlined,
+      sidebar: const ResponsableSidebar(current: ResponsableMenuItem.chauffeurs),
+      loading: _loading,
+      error: _error,
+      onRefresh: _load,
+      onOptions: _showOptions,
+      builder: (isDesktop) {
+        if (c == null) {
+          return const Center(child: Text('Aucune information disponible.'));
+        }
+        return _buildContent(c, isDesktop);
+      },
     );
   }
 
-  Widget _buildBody() {
+  String _v(String? s) => (s == null || s.trim().isEmpty) ? '' : s.trim();
+
+  Widget _buildContent(Chauffeur c, bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ProfileHeader(
+          name: _fullName(c),
+          subtitle: 'Chauffeur professionnel',
+          photoUrl: c.photoProfil,
+          onMore: _showOptions,
+          badges: [
+            ProfileBadge(Icons.verified_user_outlined,
+                displayStatus(c.statut), statusColor(c.statut)),
+            ProfileBadge(
+              Icons.badge_outlined,
+              c.matricule?.isNotEmpty == true
+                  ? c.matricule!
+                  : 'Matricule non défini',
+              Colors.white.withValues(alpha: 0.16),
+            ),
+          ],
+          details: [
+            ProfileDetail(Icons.phone_outlined,
+            c.telephone.isEmpty ? 'Téléphone non renseigné' : c.telephone),
+            ProfileDetail(Icons.mail_outline_rounded,
+            c.email.isEmpty ? 'Email non renseigné' : c.email),
+            if (c.siteAffectation.isNotEmpty)
+            ProfileDetail(Icons.business_outlined, c.siteAffectation),
+
+          ],
+
+        ),
+        const SizedBox(height: 24),
+        ProfileTwoColumns(
+          isDesktop: isDesktop,
+          left: ProfileSection(
+            title: 'Informations personnelles',
+            subtitle: 'Identité et coordonnées',
+            icon: Icons.contact_page_outlined,
+            children: [
+              ProfileInfoRow(
+                  icon: Icons.person_outline_rounded,
+                  label: 'Nom complet',
+                  value: _fullName(c)),
+              ProfileInfoRow(
+                  icon: Icons.phone_outlined,
+                  label: 'Téléphone',
+                  value: _v(c.telephone)),
+              ProfileInfoRow(
+                  icon: Icons.email_outlined,
+                  label: 'Adresse e-mail',
+                  value: _v(c.email)),
+              ProfileInfoRow(
+                  icon: Icons.location_on_outlined,
+                  label: 'Adresse',
+                  value: _v(c.address)),
+            ],
+          ),
+          right: ChauffeurProSections.professionalInfo(c),
+        ),
+        const SizedBox(height: 22),
+        ChauffeurProSections(
+          chauffeur: c,
+          isDesktop: isDesktop,
+          showProfessionalInfo: false, // déjà affichée dans la colonne de droite
+        ),
+        const SizedBox(height: 26),
+        _buildActions(), // inchangé
+        const SizedBox(height: 20),
+        const SizedBox(height: 22),
+        ProfileSection(
+          title: 'Affectation',
+          subtitle: 'Lieu de travail',
+          icon: Icons.business_outlined,
+          children: [
+            ProfileInfoRow(
+              icon: Icons.apartment_outlined,
+              label: 'Site d’affectation',
+              value: c.siteAffectation.isEmpty
+                  ? 'Non renseigné'
+                  : c.siteAffectation,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // BARRE SUPERIEURE
+  // ============================================================
+
+  Widget _buildTopBar({required bool isDesktop}) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 30 : 16,
+        vertical: 16,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: borderColor),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (!isDesktop) ...[
+            IconButton(
+              onPressed: () {
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                }
+              },
+              icon: const Icon(Icons.arrow_back_rounded),
+              color: primaryColor,
+              tooltip: 'Retour',
+            ),
+            const SizedBox(width: 8),
+          ],
+          Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.badge_outlined,
+              color: primaryColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Profil chauffeur',
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontSize: isDesktop ? 21 : 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Informations et détails professionnels',
+                  style: TextStyle(
+                    color: mutedColor,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Actualiser',
+            onPressed: _load,
+            icon: const Icon(Icons.refresh_rounded),
+            color: primaryColor,
+          ),
+          IconButton(
+            tooltip: 'Options',
+            onPressed: _showOptions,
+            icon: const Icon(Icons.more_vert_rounded),
+            color: primaryColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // CORPS PRINCIPAL
+  // ============================================================
+
+  Widget _buildBody(bool isDesktop) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: accentColor),
+      );
     }
 
     if (_error != null) {
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 440),
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(28),
+          decoration: _cardDecoration(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(
-                Icons.error_outline,
-                color: ProfilChauffeurScreen.dangerColor,
-                size: 42,
+                Icons.cloud_off_outlined,
+                size: 54,
+                color: dangerColor,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Impossible de charger le profil',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: primaryColor,
+                ),
               ),
               const SizedBox(height: 10),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 14),
-              ElevatedButton(
-                onPressed: _load,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ProfilChauffeurScreen.primaryColor,
-                  foregroundColor: Colors.white,
+                style: const TextStyle(
+                  color: mutedColor,
+                  height: 1.5,
                 ),
-                child: const Text('Réessayer'),
+              ),
+              const SizedBox(height: 22),
+              ElevatedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Réessayer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 14,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1356,464 +341,462 @@ class _ProfilChauffeurScreenState extends State<ProfilChauffeurScreen> {
       );
     }
 
+    if (_chauffeur == null) {
+      return const Center(
+        child: Text('Aucune information disponible.'),
+      );
+    }
+
     final chauffeur = _chauffeur!;
-    final statut = chauffeur.statut.isNotEmpty ? chauffeur.statut : 'Disponible';
 
     return RefreshIndicator(
       onRefresh: _load,
+      color: accentColor,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 30),
-        child: Column(
-          children: [
-            _buildProfileHeader(chauffeur, statut),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // IDENTITÉ
-            // ==================================================
-
-            _buildSection(
-              title: 'Identité du chauffeur',
-              icon: Icons.person_outline,
+        padding: EdgeInsets.all(isDesktop ? 28 : 16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1450),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildInfoRow(
-                  Icons.badge_outlined,
-                  'Matricule',
-                  chauffeur.matricule,
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.person_outline,
-                  'Nom',
-                  chauffeur.nom,
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.person_outline,
-                  'Prénom',
-                  chauffeur.prenom,
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.phone_outlined,
-                  'Téléphone',
-                  chauffeur.telephone,
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.email_outlined,
-                  'Adresse email',
-                  chauffeur.email,
-                ),
-              ],
-            ),
+                _buildProfileHeader(chauffeur),
+                const SizedBox(height: 24),
 
-            const SizedBox(height: 15),
+                if (isDesktop)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildIdentitySection(chauffeur),
+                      ),
+                      const SizedBox(width: 22),
+                      Expanded(
+                        child: _buildProfessionalSection(chauffeur),
+                      ),
+                    ],
+                  )
+                else
+                  Column(
+                    children: [
+                      _buildIdentitySection(chauffeur),
+                      const SizedBox(height: 18),
+                      _buildProfessionalSection(chauffeur),
+                    ],
+                  ),
 
-            // ==================================================
-            // INFORMATIONS PROFESSIONNELLES
-            // ==================================================
-
-            _buildSection(
-              title: 'Informations professionnelles',
-              icon: Icons.work_outline,
-              children: [
-                _buildInfoRow(
-                  Icons.badge_outlined,
-                  'Matricule professionnel',
-                  chauffeur.matricule,
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.credit_card_outlined,
-                  'Permis de conduire',
-                  chauffeur.permis,
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.directions_car_outlined,
-                  'Catégorie du permis',
-                  chauffeur.typePermis,
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.calendar_month_outlined,
-                  'Date d\u2019embauche',
-                  chauffeur.dateEmbauche,
-                ),
-                _buildDivider(),
-                _buildInfoRow(
-                  Icons.work_history_outlined,
-                  'Statut professionnel',
-                  statut,
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // CAMION
-            // ==================================================
-
-            _buildSection(
-              title: 'Véhicule affecté',
-              icon: Icons.local_shipping_outlined,
-              children: [
+                const SizedBox(height: 22),
                 _buildTruckCard(chauffeur),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // STATISTIQUES
-            // ==================================================
-
-            _buildSection(
-              title: 'Statistiques',
-              icon: Icons.analytics_outlined,
-              children: [
+                const SizedBox(height: 26),
+                _buildSectionTitle(
+                  'Activité du chauffeur',
+                  'Résumé des activités enregistrées',
+                  Icons.insights_rounded,
+                ),
+                const SizedBox(height: 16),
                 _buildStatistics(chauffeur),
+                const SizedBox(height: 26),
+                _buildActions(),
+                const SizedBox(height: 20),
               ],
             ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // MISSIONS
-            // ==================================================
-
-            _buildSection(
-              title: 'Activité des missions',
-              icon: Icons.assignment_outlined,
-              children: [
-                _buildMissionSummary(context, chauffeur),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // SIGNALEMENTS
-            // ==================================================
-
-            _buildSection(
-              title: 'Signalements',
-              icon: Icons.warning_amber_outlined,
-              children: [
-                _buildSignalementSummary(context, chauffeur),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            // ==================================================
-            // ACTIONS
-            // ==================================================
-
-            _buildActions(context, chauffeur),
-          ],
+          ),
         ),
       ),
     );
   }
 
   // ============================================================
-  // HEADER PROFIL
+  // EN-TETE DU PROFIL
   // ============================================================
 
-  Widget _buildProfileHeader(Chauffeur chauffeur, String statut) {
-    final statusColor = _getStatusColor(statut);
+  Widget _buildProfileHeader(Chauffeur chauffeur) {
+    final fullName = _fullName(chauffeur);
+    final status = _displayStatus(chauffeur.statut);
+    final statusColor = _getStatusColor(chauffeur.statut);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1D3557),
+            Color(0xFF294A70),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -30,
+            top: -45,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.045),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 70,
+            bottom: -70,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.035),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(26),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      height: 86,
+                      width: 86,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.55),
+                          width: 4,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        size: 48,
+                        color: primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fullName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 23,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Chauffeur professionnel',
+                            style: TextStyle(
+                              color: Color(0xFFDCE6F2),
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _headerBadge(
+                                icon: Icons.verified_user_outlined,
+                                label: status,
+                                color: statusColor,
+                              ),
+                              _headerBadge(
+                                icon: Icons.badge_outlined,
+                                label: chauffeur.matricule?.isNotEmpty == true
+                                    ? chauffeur.matricule!
+                                    : 'Matricule non défini',
+                                color: Colors.white.withOpacity(0.16),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _showOptions,
+                      tooltip: 'Plus d’options',
+                      icon: const Icon(
+                        Icons.more_horiz_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.only(top: 18),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.white.withOpacity(0.18),
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _headerDetail(
+                          Icons.phone_outlined,
+                          chauffeur.telephone ?? 'Téléphone non renseigné',
+                        ),
+                      ),
+                      const SizedBox(width: 18),
+                      Expanded(
+                        child: _headerDetail(
+                          Icons.mail_outline_rounded,
+                          chauffeur.email ?? 'Email non renseigné',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerBadge({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.20),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.15),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerDetail(IconData icon, String value) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 17,
+          color: const Color(0xFFB8C9DC),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // IDENTITE
+  // ============================================================
+
+  Widget _buildIdentitySection(Chauffeur chauffeur) {
+    return _buildSection(
+      title: 'Informations personnelles',
+      subtitle: 'Identité et coordonnées',
+      icon: Icons.contact_page_outlined,
+      children: [
+        _buildInfoRow(
+          icon: Icons.person_outline_rounded,
+          label: 'Nom complet',
+          value: _fullName(chauffeur),
+        ),
+        _buildDivider(),
+        _buildInfoRow(
+          icon: Icons.badge_outlined,
+          label: 'Matricule',
+          value: _value(chauffeur.matricule),
+        ),
+        _buildDivider(),
+        _buildInfoRow(
+          icon: Icons.phone_outlined,
+          label: 'Téléphone',
+          value: _value(chauffeur.telephone),
+        ),
+        _buildDivider(),
+        _buildInfoRow(
+          icon: Icons.email_outlined,
+          label: 'Adresse e-mail',
+          value: _value(chauffeur.email),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // INFORMATIONS PROFESSIONNELLES
+  // ============================================================
+
+  Widget _buildProfessionalSection(Chauffeur chauffeur) {
+    return _buildSection(
+      title: 'Informations professionnelles',
+      subtitle: 'Permis et situation professionnelle',
+      icon: Icons.work_outline_rounded,
+      children: [
+        _buildInfoRow(
+          icon: Icons.credit_card_outlined,
+          label: 'Numéro de permis',
+          value: _value(chauffeur.permis),
+        ),
+        _buildDivider(),
+        _buildInfoRow(
+          icon: Icons.directions_car_outlined,
+          label: 'Type de permis',
+          value: _value(chauffeur.typePermis),
+        ),
+        _buildDivider(),
+        _buildInfoRow(
+          icon: Icons.calendar_month_outlined,
+          label: 'Date d’embauche',
+          value: _formatDate(chauffeur.dateEmbauche),
+        ),
+        _buildDivider(),
+        _buildInfoRow(
+          icon: Icons.verified_outlined,
+          label: 'Statut',
+          value: _displayStatus(chauffeur.statut),
+          valueColor: _getStatusColor(chauffeur.statut),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // CAMION AFFECTE
+  // ============================================================
+
+  Widget _buildTruckCard(Chauffeur chauffeur) {
+    final truckName = _value(chauffeur.camionActuel);
+    final truckType = _value(chauffeur.camionActuelType);
+    final hasTruck = truckName != 'Non renseigné' &&
+        truckName != 'Aucun camion affecté';
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: ProfilChauffeurScreen.primaryColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 95,
-            height: 95,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-            ),
-            child: const Icon(
-              Icons.person,
-              color: ProfilChauffeurScreen.primaryColor,
-              size: 55,
-            ),
-          ),
-
-          const SizedBox(height: 13),
-
-          Text(
-            chauffeur.nomComplet.isNotEmpty
-                ? chauffeur.nomComplet
-                : 'Chauffeur',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 21,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          const Text(
-            'Chauffeur professionnel',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildHeaderBadge(
-                chauffeur.matricule.isNotEmpty ? chauffeur.matricule : '—',
-              ),
-              _buildHeaderBadge(
-                statut,
-                color: statusColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderBadge(
-      String text, {
-        Color? color,
-      }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        color: color?.withValues(alpha: 0.25) ??
-            Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // SECTION
-  // ============================================================
-
-  Widget _buildSection({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                color: ProfilChauffeurScreen.primaryColor,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: ProfilChauffeurScreen.primaryColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          _buildSectionTitle(
+            'Camion affecté',
+            'Véhicule associé à ce chauffeur',
+            Icons.local_shipping_outlined,
           ),
-          const SizedBox(height: 13),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // INFO ROW
-  // ============================================================
-
-  Widget _buildInfoRow(
-      IconData icon,
-      String title,
-      String? value,
-      ) {
-    final displayValue =
-    value != null && value.trim().isNotEmpty ? value : 'Non renseigné';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
+          const SizedBox(height: 22),
           Container(
-            width: 35,
-            height: 35,
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: ProfilChauffeurScreen.backgroundColor,
-              borderRadius: BorderRadius.circular(9),
+              color: const Color(0xFFF7F9FC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: borderColor),
             ),
-            child: Icon(
-              icon,
-              color: Colors.grey.shade700,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 9,
+                Container(
+                  height: 62,
+                  width: 62,
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: const Icon(
+                    Icons.local_shipping_rounded,
+                    color: primaryColor,
+                    size: 34,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  displayValue,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasTruck ? truckName : 'Aucun camion affecté',
+                        style: const TextStyle(
+                          color: primaryColor,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        hasTruck ? truckType : 'Affectation non disponible',
+                        style: const TextStyle(
+                          color: mutedColor,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (hasTruck ? accentColor : warningColor)
+                        .withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    hasTruck ? 'Affecté' : 'Non affecté',
+                    style: TextStyle(
+                      color: hasTruck ? accentColor : warningColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // CAMION
-  // ============================================================
-
-  Widget _buildTruckCard(Chauffeur chauffeur) {
-    final bool aUnCamion = chauffeur.camionActuel != null &&
-        chauffeur.camionActuel!.isNotEmpty;
-
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: ProfilChauffeurScreen.backgroundColor,
-        borderRadius: BorderRadius.circular(13),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: ProfilChauffeurScreen.primaryColor
-                  .withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.local_shipping,
-              color: ProfilChauffeurScreen.primaryColor,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  aUnCamion ? chauffeur.camionActuel! : 'Aucun camion',
-                  style: const TextStyle(
-                    color: ProfilChauffeurScreen.primaryColor,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  aUnCamion
-                      ? (chauffeur.camionActuelType ?? 'Type non renseigné')
-                      : 'Aucune mission active en ce moment',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Icon(
-                aUnCamion ? Icons.check_circle : Icons.remove_circle_outline,
-                color: aUnCamion
-                    ? ProfilChauffeurScreen.accentColor
-                    : Colors.grey,
-                size: 18,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                aUnCamion ? 'Affecté' : 'Non affecté',
-                style: TextStyle(
-                  color: aUnCamion
-                      ? ProfilChauffeurScreen.accentColor
-                      : Colors.grey,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -1825,285 +808,103 @@ class _ProfilChauffeurScreenState extends State<ProfilChauffeurScreen> {
   // ============================================================
 
   Widget _buildStatistics(Chauffeur chauffeur) {
-    final total = chauffeur.missionsCount;
-    final terminees = chauffeur.missionsTermineesCount;
-    final signalements = chauffeur.signalementsCount;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 500;
+        final count = isNarrow ? 1 : 3;
 
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatistic(
-            Icons.assignment_outlined,
-            '$total',
-            'Missions',
-            ProfilChauffeurScreen.primaryColor,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildStatistic(
-            Icons.check_circle_outline,
-            '$terminees',
-            'Terminées',
-            ProfilChauffeurScreen.accentColor,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildStatistic(
-            Icons.warning_amber_outlined,
-            '$signalements',
-            'Signalements',
-            signalements > 0
-                ? ProfilChauffeurScreen.dangerColor
-                : Colors.grey,
-          ),
-        ),
-      ],
+        return GridView.count(
+          crossAxisCount: count,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: isNarrow ? 3.0 : 1.65,
+          children: [
+            _buildStatistic(
+              title: 'Missions effectuées',
+              value: '${chauffeur.missionsCount}',
+              subtitle: 'Total des missions',
+              icon: Icons.route_rounded,
+              color: const Color(0xFF3977D5),
+            ),
+            _buildStatistic(
+              title: 'Missions terminées',
+              value: '${chauffeur.missionsTermineesCount}',
+              subtitle: 'Missions achevées',
+              icon: Icons.task_alt_rounded,
+              color: accentColor,
+            ),
+            _buildStatistic(
+              title: 'Signalements',
+              value: '${chauffeur.signalementsCount}',
+              subtitle: 'Signalements enregistrés',
+              icon: Icons.report_gmailerrorred_outlined,
+              color: dangerColor,
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildStatistic(
-      IconData icon,
-      String value,
-      String label,
-      Color color,
-      ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 8,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // MISSIONS
-  // ============================================================
-
-  Widget _buildMissionSummary(BuildContext context, Chauffeur chauffeur) {
-    final total = chauffeur.missionsCount;
-    final terminees = chauffeur.missionsTermineesCount;
-    final enCours = (total - terminees).clamp(0, total);
-
-    return Column(
-      children: [
-        _buildProgressRow(
-          title: 'Missions terminées',
-          value: terminees,
-          total: total,
-          color: ProfilChauffeurScreen.accentColor,
-        ),
-
-        const SizedBox(height: 12),
-
-        _buildProgressRow(
-          title: 'Missions restantes',
-          value: enCours,
-          total: total,
-          color: ProfilChauffeurScreen.warningColor,
-        ),
-
-        const SizedBox(height: 14),
-
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              _showMessage(
-                context,
-                'Historique des missions du chauffeur',
-              );
-            },
-            icon: const Icon(Icons.history, size: 18),
-            label: const Text('Voir l\u2019historique des missions'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ProfilChauffeurScreen.primaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 11),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProgressRow({
+  Widget _buildStatistic({
     required String title,
-    required int value,
-    required int total,
+    required String value,
+    required String subtitle,
+    required IconData icon,
     required Color color,
   }) {
-    final progress = total == 0 ? 0.0 : (value / total).clamp(0.0, 1.0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              '$value / $total',
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 7,
-            backgroundColor: Colors.grey.shade200,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // SIGNALEMENTS
-  // ============================================================
-
-  Widget _buildSignalementSummary(BuildContext context, Chauffeur chauffeur) {
-    final total = chauffeur.signalementsCount;
-
-    if (total == 0) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: ProfilChauffeurScreen.accentColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(
-          children: [
-            Icon(
-              Icons.check_circle,
-              color: ProfilChauffeurScreen.accentColor,
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Aucun signalement enregistré.',
-                style: TextStyle(
-                  color: ProfilChauffeurScreen.accentColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        _buildSignalementRow(
-          Icons.warning_amber_outlined,
-          'Signalements enregistrés',
-          '$total',
-          ProfilChauffeurScreen.dangerColor,
-        ),
-
-        const SizedBox(height: 10),
-
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              _showMessage(
-                context,
-                'Historique des signalements',
-              );
-            },
-            icon: const Icon(Icons.visibility_outlined, size: 18),
-            label: const Text('Voir les signalements'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ProfilChauffeurScreen.dangerColor,
-              side: const BorderSide(
-                color: ProfilChauffeurScreen.dangerColor,
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 11),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSignalementRow(
-      IconData icon,
-      String title,
-      String value,
-      Color color,
-      ) {
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(11),
-      ),
+      padding: const EdgeInsets.all(19),
+      decoration: _cardDecoration(),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+          Container(
+            height: 52,
+            width: 52,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(14),
             ),
+            child: Icon(icon, color: color, size: 27),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: primaryColor,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: mutedColor,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -2112,279 +913,535 @@ class _ProfilChauffeurScreenState extends State<ProfilChauffeurScreen> {
   }
 
   // ============================================================
-  // ACTIONS RESPONSABLE
+  // SECTIONS ET LIGNES D'INFORMATION
   // ============================================================
 
-  Widget _buildActions(BuildContext context, Chauffeur chauffeur) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {
-              _showMessage(
-                context,
-                'Ouverture du suivi GPS du chauffeur',
-              );
-            },
-            icon: const Icon(Icons.location_on_outlined, size: 18),
-            label: const Text('Suivi GPS'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ProfilChauffeurScreen.primaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(11),
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _showContactDialog(context, chauffeur);
-            },
-            icon: const Icon(Icons.phone_outlined, size: 18),
-            label: const Text('Contacter'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: ProfilChauffeurScreen.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(11),
-              ),
-            ),
-          ),
-        ),
-      ],
+  Widget _buildSection({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle(title, subtitle, icon),
+          const SizedBox(height: 20),
+          ...children,
+        ],
+      ),
     );
   }
 
-  // ============================================================
-  // OPTIONS
-  // ============================================================
-
-  void _showOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
+  Widget _buildSectionTitle(
+      String title,
+      String subtitle,
+      IconData icon,
+      ) {
+    return Row(
+      children: [
+        Container(
+          height: 44,
+          width: 44,
+          decoration: BoxDecoration(
+            color: accentColor.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: accentColor, size: 23),
+        ),
+        const SizedBox(width: 13),
+        Expanded(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.edit_outlined,
-                  color: ProfilChauffeurScreen.primaryColor,
+              Text(
+                title,
+                style: const TextStyle(
+                  color: primaryColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
                 ),
-                title: const Text('Modifier les infos professionnelles'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _showEditDialog(context);
-                },
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.location_on_outlined,
-                  color: ProfilChauffeurScreen.primaryColor,
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: mutedColor,
+                  fontSize: 12,
                 ),
-                title: const Text('Voir la position GPS'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _showMessage(context, 'Suivi GPS du chauffeur');
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.history,
-                  color: ProfilChauffeurScreen.primaryColor,
-                ),
-                title: const Text('Voir l\u2019historique'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _showMessage(context, 'Historique du chauffeur');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.close, color: Colors.grey),
-                title: const Text('Fermer'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                },
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    Color? valueColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: mutedColor, size: 19),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: mutedColor,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                color: valueColor ?? textColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return const Divider(
+      height: 1,
+      thickness: 1,
+      color: borderColor,
+    );
+  }
+
+  BoxDecoration _cardDecoration() {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: borderColor),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF1D3557).withOpacity(0.025),
+          blurRadius: 15,
+          offset: const Offset(0, 5),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ACTIONS
+  // ============================================================
+
+  Widget _buildActions() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        ElevatedButton.icon(
+          onPressed: _showEditDialog,
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: const Text('Modifier le profil'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 15,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 0,
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: _showContactDialog,
+          icon: const Icon(Icons.phone_outlined, size: 18),
+          label: const Text('Contacter'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: accentColor,
+            side: const BorderSide(color: accentColor),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 15,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: () {
+            _showMessage(
+              'Le suivi GPS sera disponible lorsque cet écran sera connecté.',
+            );
+          },
+          icon: const Icon(Icons.location_on_outlined, size: 18),
+          label: const Text('Suivi GPS'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: primaryColor,
+            side: const BorderSide(color: borderColor),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 15,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // MENU D'OPTIONS
+  // ============================================================
+
+  void _showOptions() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Options du profil',
+                    style: TextStyle(
+                      color: primaryColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ListTile(
+                  leading: const Icon(
+                    Icons.edit_outlined,
+                    color: primaryColor,
+                  ),
+                  title: const Text('Modifier les informations'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _showEditDialog();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.phone_outlined,
+                    color: accentColor,
+                  ),
+                  title: const Text('Contacter le chauffeur'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _showContactDialog();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.history_rounded,
+                    color: mutedColor,
+                  ),
+                  title: const Text('Historique des activités'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _showMessage(
+                      'L’historique sera disponible lorsque cette fonctionnalité sera connectée.',
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
   }
 
   // ============================================================
-  // ÉDITION DES INFOS PROFESSIONNELLES
+  // MODIFICATION DU PROFIL
   // ============================================================
 
-  Future<void> _showEditDialog(BuildContext context) async {
+  Future<void> _showEditDialog() async {
     final chauffeur = _chauffeur;
     if (chauffeur == null) return;
 
-    final matriculeController = TextEditingController(text: chauffeur.matricule);
-    final permisController = TextEditingController(text: chauffeur.permis);
-    final typePermisController = TextEditingController(text: chauffeur.typePermis);
-    final dateEmbaucheController =
+    final matriculeController =
+    TextEditingController(text: chauffeur.matricule ?? '');
+    final permisController =
+    TextEditingController(text: chauffeur.permis ?? '');
+    final typePermisController =
+    TextEditingController(text: chauffeur.typePermis ?? '');
+    final dateController =
     TextEditingController(text: chauffeur.dateEmbauche ?? '');
 
-    String statut = chauffeur.statut.isNotEmpty ? chauffeur.statut : 'actif';
-    const statutsPossibles = ['actif', 'inactif', 'suspendu'];
-    if (!statutsPossibles.contains(statut)) {
-      statut = 'actif';
-    }
+    String selectedStatus = _normaliseStatusForApi(chauffeur.statut);
 
-    bool isSaving = false;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          bool saving = false;
 
-    await showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-              title: const Text(
-                'Modifier le chauffeur',
-                style: TextStyle(
-                  color: ProfilChauffeurScreen.primaryColor,
-                  fontWeight: FontWeight.bold,
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
                 ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: matriculeController,
-                      decoration: const InputDecoration(labelText: 'Matricule'),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: permisController,
-                      decoration: const InputDecoration(
-                        labelText: 'N° permis de conduire',
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: typePermisController,
-                      decoration: const InputDecoration(
-                        labelText: 'Catégorie du permis',
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: dateEmbaucheController,
-                      decoration: const InputDecoration(
-                        labelText: 'Date d\u2019embauche (AAAA-MM-JJ)',
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: statut,
-                      decoration: const InputDecoration(labelText: 'Statut'),
-                      items: statutsPossibles
-                          .map(
-                            (s) => DropdownMenuItem(
-                          value: s,
-                          child: Text(s[0].toUpperCase() + s.substring(1)),
+                title: const Text(
+                  'Modifier le profil',
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                content: SizedBox(
+                  width: 460,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _editField(
+                          controller: matriculeController,
+                          label: 'Matricule',
+                          icon: Icons.badge_outlined,
                         ),
-                      )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setStateDialog(() => statut = value);
-                        }
-                      },
+                        const SizedBox(height: 14),
+                        _editField(
+                          controller: permisController,
+                          label: 'Numéro de permis',
+                          icon: Icons.credit_card_outlined,
+                        ),
+                        const SizedBox(height: 14),
+                        _editField(
+                          controller: typePermisController,
+                          label: 'Type de permis',
+                          icon: Icons.directions_car_outlined,
+                        ),
+                        const SizedBox(height: 14),
+                        _editField(
+                          controller: dateController,
+                          label: 'Date d’embauche (AAAA-MM-JJ)',
+                          icon: Icons.calendar_month_outlined,
+                          hint: '2026-01-15',
+                        ),
+                        const SizedBox(height: 14),
+                        DropdownButtonFormField<String>(
+                          value: selectedStatus,
+                          decoration: _editDecoration(
+                            'Statut',
+                            Icons.verified_outlined,
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'actif',
+                              child: Text('Actif'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'inactif',
+                              child: Text('Inactif'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'suspendu',
+                              child: Text('Suspendu'),
+                            ),
+                          ],
+                          onChanged: saving
+                              ? null
+                              : (value) {
+                            if (value != null) {
+                              setDialogState(() {
+                                selectedStatus = value;
+                              });
+                            }
+                          },
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
-                  child: const Text('Annuler'),
-                ),
-                ElevatedButton(
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                    setStateDialog(() => isSaving = true);
+                actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                actions: [
+                  TextButton(
+                    onPressed: saving
+                        ? null
+                        : () => Navigator.pop(dialogContext),
+                    child: const Text(
+                      'Annuler',
+                      style: TextStyle(color: mutedColor),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                      setDialogState(() => saving = true);
 
-                    try {
-                      final token = Provider.of<AuthProvider>(
-                        context,
-                        listen: false,
-                      ).token;
+                      try {
+                        final token =
+                            this.context.read<AuthProvider>().token;
 
-                      if (token == null || token.isEmpty) {
-                        throw Exception('Session expirée.');
-                      }
+                        if (token == null || token.isEmpty) {
+                          throw Exception(
+                            'Session expirée. Veuillez vous reconnecter.',
+                          );
+                        }
 
-                      final updated = await _chauffeurService.updateChauffeur(
-                        id: chauffeur.id ?? widget.chauffeurId,
-                        token: token,
-                        matricule: matriculeController.text.trim(),
-                        permis: permisController.text.trim(),
-                        typePermis: typePermisController.text.trim(),
-                        dateEmbauche: dateEmbaucheController.text.trim().isEmpty
-                            ? null
-                            : dateEmbaucheController.text.trim(),
-                        statut: statut,
-                      );
+                        final int? chauffeurId = chauffeur.id;
 
-                      if (!mounted) return;
+                        if (chauffeurId == null) {
+                          if (!dialogContext.mounted) return;
 
-                      setState(() => _chauffeur = updated);
+                          setDialogState(() => saving = false);
 
-                      if (dialogContext.mounted) {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            const SnackBar(
+                              content: Text('Identifiant du chauffeur introuvable.'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        await _chauffeurService.updateChauffeur(
+                          id: chauffeurId,
+                          token: token,
+                          matricule: matriculeController.text.trim(),
+                          permis: permisController.text.trim(),
+                          typePermis:
+                          typePermisController.text.trim(),
+                          dateEmbauche: dateController.text.trim(),
+                          statut: selectedStatus,
+                        );
+
+                        if (!mounted) return;
+
                         Navigator.pop(dialogContext);
-                      }
-                    } catch (e) {
-                      setStateDialog(() => isSaving = false);
+                        await _load();
 
-                      if (dialogContext.mounted) {
+                        if (!mounted) return;
+
+                        _showMessage(
+                          'Profil chauffeur mis à jour avec succès.',
+                          success: true,
+                        );
+                      } catch (e) {
+                        if (!dialogContext.mounted) return;
+
+                        setDialogState(() => saving = false);
+
                         ScaffoldMessenger.of(dialogContext).showSnackBar(
                           SnackBar(
                             content: Text(
-                              e.toString().replaceFirst('Exception: ', ''),
+                              e.toString().replaceFirst(
+                                'Exception: ',
+                                '',
+                              ),
                             ),
+                            backgroundColor: dangerColor,
                           ),
                         );
                       }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ProfilChauffeurScreen.primaryColor,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 13,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                  )
-                      : const Text('Enregistrer'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+                    child: saving
+                        ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                        : const Text('Enregistrer'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      matriculeController.dispose();
+      permisController.dispose();
+      typePermisController.dispose();
+      dateController.dispose();
+    }
+  }
+
+  Widget _editField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? hint,
+  }) {
+    return TextField(
+      controller: controller,
+      decoration: _editDecoration(label, icon, hint: hint),
+    );
+  }
+
+  InputDecoration _editDecoration(
+      String label,
+      IconData icon, {
+        String? hint,
+      }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: accentColor, size: 21),
+      filled: true,
+      fillColor: const Color(0xFFF7F9FC),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: borderColor),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: borderColor),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: accentColor, width: 1.5),
+      ),
     );
   }
 
@@ -2392,19 +1449,26 @@ class _ProfilChauffeurScreenState extends State<ProfilChauffeurScreen> {
   // CONTACT
   // ============================================================
 
-  void _showContactDialog(BuildContext context, Chauffeur chauffeur) {
-    final telephone =
-    chauffeur.telephone.isNotEmpty ? chauffeur.telephone : 'Non renseigné';
+  void _showContactDialog() {
+    final chauffeur = _chauffeur;
+    if (chauffeur == null) return;
 
-    showDialog(
+    final phone = chauffeur.telephone?.trim() ?? '';
+
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
           title: const Text(
             'Contacter le chauffeur',
             style: TextStyle(
-              color: ProfilChauffeurScreen.primaryColor,
-              fontWeight: FontWeight.bold,
+              color: primaryColor,
+              fontWeight: FontWeight.w800,
             ),
           ),
           content: Column(
@@ -2412,45 +1476,68 @@ class _ProfilChauffeurScreenState extends State<ProfilChauffeurScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                chauffeur.nomComplet.isNotEmpty
-                    ? chauffeur.nomComplet
-                    : 'Chauffeur',
+                _fullName(chauffeur),
                 style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                  color: textColor,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.phone_outlined,
-                    color: ProfilChauffeurScreen.primaryColor,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(telephone),
-                ],
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: backgroundColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.phone_outlined,
+                      color: accentColor,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        phone.isEmpty ? 'Numéro non renseigné' : phone,
+                        style: const TextStyle(
+                          color: primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('Fermer'),
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text(
+                'Fermer',
+                style: TextStyle(color: mutedColor),
+              ),
             ),
             ElevatedButton.icon(
-              onPressed: () {
+              onPressed: phone.isEmpty
+                  ? null
+                  : () async {
+                await Clipboard.setData(
+                  ClipboardData(text: phone),
+                );
+
+                if (!dialogContext.mounted) return;
                 Navigator.pop(dialogContext);
 
-                _showMessage(context, 'Appel vers $telephone');
+                _showMessage(
+                  'Numéro copié dans le presse-papiers.',
+                  success: true,
+                );
               },
-              icon: const Icon(Icons.phone, size: 17),
-              label: const Text('Appeler'),
+              icon: const Icon(Icons.copy_rounded, size: 17),
+              label: const Text('Copier le numéro'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: ProfilChauffeurScreen.primaryColor,
+                backgroundColor: accentColor,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -2461,60 +1548,106 @@ class _ProfilChauffeurScreenState extends State<ProfilChauffeurScreen> {
   }
 
   // ============================================================
-  // MESSAGE
+  // HELPERS
   // ============================================================
 
-  void _showMessage(
-      BuildContext context,
-      String message,
-      ) {
+  String _fullName(Chauffeur chauffeur) {
+    final fullName = chauffeur.nomComplet.trim();
+
+    if (fullName.isNotEmpty) {
+      return fullName;
+    }
+
+    final combined = '${chauffeur.prenom.trim()} ${chauffeur.nom.trim()}'
+        .trim();
+
+    return combined.isEmpty ? 'Chauffeur sans nom' : combined;
+  }
+
+  String _value(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Non renseigné';
+    }
+
+    return value.trim();
+  }
+
+  String _formatDate(String? date) {
+    if (date == null || date.trim().isEmpty) {
+      return 'Non renseignée';
+    }
+
+    // Présente la date sans heure lorsqu'elle provient d'un datetime.
+    return date.length >= 10 ? date.substring(0, 10) : date;
+  }
+
+  String _normaliseStatusForApi(String? status) {
+    final value = status?.trim().toLowerCase() ?? '';
+
+    if (value == 'inactif' || value == 'inactive') return 'inactif';
+    if (value == 'suspendu' || value == 'suspended') return 'suspendu';
+
+    return 'actif';
+  }
+
+  String _displayStatus(String? status) {
+    switch (status?.trim().toLowerCase()) {
+      case 'actif':
+      case 'active':
+      case 'en service':
+      case 'disponible':
+        return 'Actif';
+
+      case 'inactif':
+      case 'inactive':
+        return 'Inactif';
+
+      case 'suspendu':
+      case 'suspended':
+        return 'Suspendu';
+
+      default:
+        return status == null || status.trim().isEmpty
+            ? 'Non défini'
+            : status;
+    }
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.trim().toLowerCase()) {
+      case 'actif':
+      case 'active':
+      case 'en service':
+      case 'disponible':
+        return accentColor;
+
+      case 'suspendu':
+      case 'suspended':
+        return dangerColor;
+
+      case 'inactif':
+      case 'inactive':
+        return warningColor;
+
+      default:
+        return mutedColor;
+    }
+  }
+
+  void _showMessage(String message, {bool success = false}) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(message),
+          backgroundColor: success ? accentColor : primaryColor,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
-  }
-
-  // ============================================================
-  // DIVIDER
-  // ============================================================
-
-  Widget _buildDivider() {
-    return Divider(
-      height: 1,
-      color: Colors.grey.shade200,
-    );
-  }
-
-  // ============================================================
-  // COULEUR STATUT
-  // ============================================================
-
-  Color _getStatusColor(String statut) {
-    switch (statut) {
-      case 'En mission':
-        return ProfilChauffeurScreen.warningColor;
-
-      case 'En service':
-        return ProfilChauffeurScreen.accentColor;
-
-      case 'Disponible':
-      case 'actif':
-        return ProfilChauffeurScreen.primaryColor;
-
-      case 'Repos':
-      case 'inactif':
-        return Colors.grey;
-
-      case 'suspendu':
-        return ProfilChauffeurScreen.dangerColor;
-
-      default:
-        return ProfilChauffeurScreen.primaryColor;
-    }
   }
 }

@@ -10,6 +10,7 @@ import 'package:record/record.dart';
 
 import '../../models/message_signalement_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/push_notification_service.dart';
 import '../../services/signalement_service.dart';
 
 class SignalementDetailScreen extends StatefulWidget {
@@ -102,9 +103,10 @@ class _SignalementDetailScreenState extends State<SignalementDetailScreen> {
   // INIT
   // ================================================================
 
-  @override
+ @override
   void initState() {
     super.initState();
+    PushNotificationService.instance.clearBadge();
 
     statut = widget.signalement['statut']?.toString() ?? 'Nouveau';
     signalementId =
@@ -119,6 +121,25 @@ class _SignalementDetailScreenState extends State<SignalementDetailScreen> {
 
     refreshTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       _loadMessages(silent: true);
+    });
+
+    audioPlayer.setAudioContext(AudioContext(
+      android: AudioContextAndroid(
+        isSpeakerphoneOn: true,
+        stayAwake: false,
+        contentType: AndroidContentType.music,
+        usageType: AndroidUsageType.media,
+        audioFocus: AndroidAudioFocus.gain,
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,
+        options: {AVAudioSessionOptions.mixWithOthers},
+      ),
+    ));
+
+    audioPlayer.onPlayerStateChanged.listen((state) {
+      if (!mounted) return;
+      setState(() => isPlayingAudio = state == PlayerState.playing);
     });
   }
 
@@ -777,7 +798,7 @@ class _SignalementDetailScreenState extends State<SignalementDetailScreen> {
     );
   }
 
-  Future<void> _toggleAudio(String? url) async {
+ Future<void> _toggleAudio(String? url) async {
     if (url == null) return;
 
     try {
@@ -791,6 +812,43 @@ class _SignalementDetailScreenState extends State<SignalementDetailScreen> {
       _showError('Impossible de lire ce message vocal : ${e.toString().replaceFirst('Exception: ', '')}');
     }
   }
+
+ /* Future<void> _toggleAudio(String? url) async {
+    if (url == null || url.isEmpty) return;
+
+    try {
+      // Si l'audio est déjà en cours de lecture -> Pause
+      if (isPlayingAudio && playingAudioUrl == url) {
+        await audioPlayer.pause();
+        setState(() => isPlayingAudio = false);
+        return;
+      }
+
+      // Si le même audio est en pause -> Reprise
+      if (!isPlayingAudio && playingAudioUrl == url && audioPlayer.state == PlayerState.paused) {
+        await audioPlayer.resume();
+        setState(() => isPlayingAudio = true);
+        return;
+      }
+
+      // Nouvelle lecture
+      await audioPlayer.stop();
+      playingAudioUrl = url;
+
+      // S'assurer que le volume est au maximum et jouer en mode mediaPlayer
+      await audioPlayer.setVolume(1.0);
+      await audioPlayer.play(
+        UrlSource(url),
+        mode: PlayerMode.mediaPlayer,
+      );
+
+      setState(() => isPlayingAudio = true);
+    } catch (e) {
+      debugPrint('Erreur lecture audio : $e');
+      setState(() => isPlayingAudio = false);
+      _showError('Impossible de lire ce message vocal : ${e.toString().replaceFirst('Exception: ', '')}');
+    }
+  }*/
 
   // ================================================================
   // ACTIONS RESPONSABLE
@@ -1009,7 +1067,7 @@ class _SignalementDetailScreenState extends State<SignalementDetailScreen> {
             const SizedBox(width: 6),
             IconButton(
               onPressed: isSending ? null : _startRecording,
-              icon: Icon(Icons.mic_none_rounded, color: kIsWeb ? Colors.grey.shade400 : primaryColor),
+              icon: Icon(Icons.mic_none_rounded, color: primaryColor),
             ),
             GestureDetector(
               onTap: isSending ? null : _sendTextMessage,
@@ -1122,15 +1180,8 @@ class _SignalementDetailScreenState extends State<SignalementDetailScreen> {
   // ENREGISTREMENT VOCAL
   // ================================================================
 
-  Future<void> _startRecording() async {
+  /*Future<void> _startRecording() async {
     if (isRecording) return;
-
-    if (kIsWeb) {
-      _showError(
-        'L’enregistrement vocal n’est pas disponible depuis le navigateur. Utilisez le texte, une image, ou l’application mobile.',
-      );
-      return;
-    }
 
     try {
       final hasPermission = await audioRecorder.hasPermission();
@@ -1160,6 +1211,46 @@ class _SignalementDetailScreenState extends State<SignalementDetailScreen> {
     } catch (e) {
       _showError('Impossible de démarrer l’enregistrement.');
     }
+  }*/
+
+  Future<void> _startRecording() async {
+    if (isRecording) return;
+
+    try {
+      final hasPermission = await audioRecorder.hasPermission();
+      if (!hasPermission) {
+        _showError('L\u2019autorisation du microphone est nécessaire.');
+        return;
+      }
+
+      final config = kIsWeb
+          ? const RecordConfig(encoder: AudioEncoder.opus, bitRate: 128000, sampleRate: 44100)
+          : const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000, sampleRate: 44100);
+
+      String path;
+      if (kIsWeb) {
+        // Ignoré en interne par le package sur le web, mais un argument reste requis.
+        path = 'signalement_${DateTime.now().millisecondsSinceEpoch}.webm';
+      } else {
+        final directory = await getTemporaryDirectory();
+        path = '${directory.path}/signalement_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      }
+
+      await audioRecorder.start(config, path: path);
+
+      setState(() {
+        isRecording = true;
+        recordingSeconds = 0;
+      });
+
+      recordingTimer?.cancel();
+      recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        setState(() => recordingSeconds++);
+      });
+    } catch (e) {
+      _showError('Impossible de démarrer l\u2019enregistrement : ${e.toString().replaceFirst('Exception: ', '')}');
+    }
   }
 
   Future<void> _stopRecordingAndSend() async {
@@ -1185,7 +1276,13 @@ class _SignalementDetailScreenState extends State<SignalementDetailScreen> {
 
       if (token == null) throw Exception('Utilisateur non authentifié.');
 
-      final message = await _signalementService.sendVocalMessage(token, signalementId, path, duration);
+      final message = await _signalementService.sendVocalMessage(
+        token,
+        signalementId,
+        path,
+        duration,
+        fileExtension: kIsWeb ? 'webm' : 'm4a',
+      );
 
       setState(() {
         messages.add(message);

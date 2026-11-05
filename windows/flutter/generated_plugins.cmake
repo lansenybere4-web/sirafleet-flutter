@@ -4,7 +4,9 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_windows
+  file_saver
   file_selector_windows
+  firebase_core
   geolocator_windows
   printing
   record_windows

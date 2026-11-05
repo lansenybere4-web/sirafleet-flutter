@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
@@ -18,81 +17,62 @@ class ChauffeursScreen extends StatefulWidget {
 }
 
 class _ChauffeursScreenState extends State<ChauffeursScreen> {
-  // ============================================================
-  // COULEURS
-  // ============================================================
-
   static const Color primaryColor = Color(0xFF1D3557);
   static const Color accentColor = Color(0xFF2A9D8F);
   static const Color dangerColor = Color(0xFFE63946);
   static const Color warningColor = Color(0xFFF4A261);
   static const Color backgroundColor = Color(0xFFF5F7FA);
+  static const Color borderColor = Color(0xFFE8EDF3);
+  static const Color secondaryText = Color(0xFF718096);
 
-  // ============================================================
-  // CONTROLLERS
-  // ============================================================
-
-  final TextEditingController searchController = TextEditingController();
-
-  // ============================================================
-  // DONNÉES
-  // ============================================================
+  final TextEditingController searchController =
+  TextEditingController();
 
   List<Map<String, dynamic>> chauffeurs = [];
 
   bool isLoading = true;
   bool isRefreshing = false;
-
   String? errorMessage;
+  String selectedStatus = 'Tous';
 
-  // ============================================================
-  // INIT
-  // ============================================================
+  static const List<String> statusFilters = [
+    'Tous',
+    'Disponible',
+    'En mission',
+    'En service',
+    'Repos',
+  ];
 
   @override
   void initState() {
     super.initState();
 
-    searchController.addListener(() {
-      if (mounted) {
-        setState(() {});
-      }
-    });
+    searchController.addListener(_onSearchChanged);
 
-    // On attend le premier frame pour pouvoir lire l'AuthProvider
-    // via context.read() en toute sécurité.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadChauffeurs();
     });
   }
 
+  void _onSearchChanged() {
+    if (mounted) setState(() {});
+  }
+
   // ============================================================
-  // CHARGEMENT API
+  // API LARAVEL
   // ============================================================
 
-  Future<void> _loadChauffeurs({
-    bool refresh = false,
-  }) async {
+  Future<void> _loadChauffeurs({bool refresh = false}) async {
     if (refresh) {
-      if (mounted) {
-        setState(() {
-          isRefreshing = true;
-        });
-      }
+      setState(() => isRefreshing = true);
     } else {
-      if (mounted) {
-        setState(() {
-          isLoading = true;
-          errorMessage = null;
-        });
-      }
+      setState(() {
+        isLoading = true;
+        errorMessage = null;
+      });
     }
 
     try {
-      // --------------------------------------------------------
-      // TOKEN
-      // --------------------------------------------------------
-
       final token = context.read<AuthProvider>().token;
 
       if (token == null || token.trim().isEmpty) {
@@ -101,15 +81,10 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
         );
       }
 
-      final uri = Uri.parse(
-        '${AppConstants.baseUrl}/chauffeurs',
-      );
-
       final response = await http.get(
-        uri,
+        Uri.parse('${AppConstants.baseUrl}/chauffeurs'),
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
@@ -124,82 +99,55 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
         );
       }
 
-      if (response.statusCode >= 200 &&
-          response.statusCode < 300) {
-        final decoded = jsonDecode(response.body);
-
-        List<dynamic> data = [];
-
-        // Laravel peut retourner :
-        //
-        // [
-        //   {...},
-        //   {...}
-        // ]
-        //
-        // ou :
-        //
-        // {
-        //   "data": [...]
-        // }
-        //
-        // ou :
-        //
-        // {
-        //   "chauffeurs": [...]
-        // }
-
-        if (decoded is List) {
-          data = decoded;
-        } else if (decoded is Map<String, dynamic>) {
-          if (decoded['data'] is List) {
-            data = decoded['data'];
-          } else if (decoded['chauffeurs'] is List) {
-            data = decoded['chauffeurs'];
-          }
-        }
-
-        final List<Map<String, dynamic>> loadedChauffeurs = [];
-
-        for (final item in data) {
-          if (item is Map) {
-            loadedChauffeurs.add(
-              Map<String, dynamic>.from(item),
-            );
-          }
-        }
-
-        if (!mounted) return;
-
-        setState(() {
-          chauffeurs = loadedChauffeurs;
-          errorMessage = null;
-          isLoading = false;
-          isRefreshing = false;
-        });
-      } else {
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300) {
         String message =
             'Erreur serveur : ${response.statusCode}';
 
         try {
-          final decoded = jsonDecode(response.body);
-
-          if (decoded is Map && decoded['message'] != null) {
-            message = decoded['message'].toString();
+          final body = jsonDecode(response.body);
+          if (body is Map && body['message'] != null) {
+            message = body['message'].toString();
           }
-        } catch (_) {
-          // corps de réponse non JSON, on garde le message par défaut
-        }
+        } catch (_) {}
 
         throw Exception(message);
       }
+
+      final decoded = jsonDecode(response.body);
+      List<dynamic> data = [];
+
+      if (decoded is List) {
+        data = decoded;
+      } else if (decoded is Map) {
+        if (decoded['data'] is List) {
+          data = decoded['data'];
+        } else if (decoded['chauffeurs'] is List) {
+          data = decoded['chauffeurs'];
+        }
+      }
+
+      final loaded = data
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        chauffeurs = loaded;
+        errorMessage = null;
+        isLoading = false;
+        isRefreshing = false;
+      });
     } catch (e) {
       debugPrint('Erreur chargement chauffeurs : $e');
 
       if (!mounted) return;
 
       setState(() {
-        errorMessage = e.toString().replaceFirst('Exception: ', '');
+        errorMessage =
+            e.toString().replaceFirst('Exception: ', '');
         isLoading = false;
         isRefreshing = false;
       });
@@ -207,57 +155,39 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
   }
 
   // ============================================================
-  // RECHERCHE
+  // FILTRAGE ET RECHERCHE
   // ============================================================
 
   List<Map<String, dynamic>> get filteredChauffeurs {
     final query = searchController.text.trim().toLowerCase();
 
-    if (query.isEmpty) {
-      return chauffeurs;
-    }
-
     return chauffeurs.where((chauffeur) {
-      final nom = _getNomComplet(chauffeur).toLowerCase();
+      final status = _getStatut(chauffeur);
 
-      final id = _getString(
-        chauffeur,
-        [
-          'id',
-          'matricule',
-          'numero_matricule',
-        ],
-      ).toLowerCase();
+      final matchesStatus = selectedStatus == 'Tous' ||
+          status == selectedStatus;
 
-      final telephone = _getString(
-        chauffeur,
-        [
-          'telephone',
-          'phone',
-          'tel',
-        ],
-      ).toLowerCase();
+      final searchable = [
+        _getNomComplet(chauffeur),
+        _getMatricule(chauffeur),
+        _getTelephone(chauffeur),
+        _getCamion(chauffeur),
+        _getEmail(chauffeur),
+        status,
+      ].join(' ').toLowerCase();
 
-      final camion = _getCamion(chauffeur).toLowerCase();
-
-      final statut = _getStatut(chauffeur).toLowerCase();
-
-      final email = _getString(
-        chauffeur,
-        ['email'],
-      ).toLowerCase();
-
-      return nom.contains(query) ||
-          id.contains(query) ||
-          telephone.contains(query) ||
-          camion.contains(query) ||
-          statut.contains(query) ||
-          email.contains(query);
+      return matchesStatus && searchable.contains(query);
     }).toList();
   }
 
+  int _countStatus(String status) {
+    return chauffeurs
+        .where((chauffeur) => _getStatut(chauffeur) == status)
+        .length;
+  }
+
   // ============================================================
-  // BUILD
+  // PAGE PRINCIPALE
   // ============================================================
 
   @override
@@ -273,9 +203,7 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
             child: Column(
               children: [
                 _buildTopBar(),
-                Expanded(
-                  child: _buildMainContent(),
-                ),
+                Expanded(child: _buildMainContent()),
               ],
             ),
           ),
@@ -284,153 +212,61 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
     );
   }
 
-  // ============================================================
-  // CONTENU PRINCIPAL
-  // ============================================================
-
-  Widget _buildMainContent() {
-    if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: primaryColor,
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      color: primaryColor,
-      onRefresh: () => _loadChauffeurs(
-        refresh: true,
-      ),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
-        child: _buildContent(),
-      ),
-    );
-  }
-
-  // ============================================================
-  // TOP BAR
-  // ============================================================
-
   Widget _buildTopBar() {
     return Container(
-      height: 75,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 28,
-      ),
+      height: 76,
+      padding: const EdgeInsets.symmetric(horizontal: 28),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFE5E7EB),
-          ),
+          bottom: BorderSide(color: borderColor),
         ),
       ),
       child: Row(
         children: [
-          const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Chauffeurs',
-                style: TextStyle(
-                  color: primaryColor,
-                  fontSize: 21,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 3),
-              Text(
-                'Gestion et suivi des chauffeurs',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 11,
-                ),
-              ),
-            ],
+          const Icon(
+            Icons.groups_rounded,
+            color: primaryColor,
+            size: 25,
           ),
-
-          const Spacer(),
-
-          // ACTUALISER
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              tooltip: 'Actualiser',
-              onPressed: isRefreshing
-                  ? null
-                  : () {
-                _loadChauffeurs(
-                  refresh: true,
-                );
-              },
-              icon: isRefreshing
-                  ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: primaryColor,
-                ),
-              )
-                  : const Icon(
-                Icons.refresh,
-                color: primaryColor,
-                size: 21,
-              ),
-            ),
-          ),
-
           const SizedBox(width: 12),
-
-          // NOTIFICATIONS
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Stack(
+          const Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Center(
-                  child: Icon(
-                    Icons.notifications_none,
+                Text(
+                  'Gestion des chauffeurs',
+                  style: TextStyle(
                     color: primaryColor,
-                    size: 22,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                Positioned(
-                  right: 9,
-                  top: 8,
-                  child: Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: dangerColor,
-                      shape: BoxShape.circle,
-                    ),
+                SizedBox(height: 4),
+                Text(
+                  'Gestionnaire de flotte · SiraFleet',
+                  style: TextStyle(
+                    color: secondaryText,
+                    fontSize: 11,
                   ),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(width: 15),
-
-          // PROFIL RESPONSABLE
+          _iconButton(
+            icon: Icons.refresh_rounded,
+            tooltip: 'Actualiser la liste',
+            onTap: isRefreshing
+                ? null
+                : () => _loadChauffeurs(refresh: true),
+            loading: isRefreshing,
+          ),
+          const SizedBox(width: 14),
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 12,
-              vertical: 7,
+              vertical: 9,
             ),
             decoration: BoxDecoration(
               color: backgroundColor,
@@ -439,18 +275,18 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
             child: const Row(
               children: [
                 CircleAvatar(
-                  radius: 17,
+                  radius: 16,
                   backgroundColor: primaryColor,
                   child: Icon(
-                    Icons.person,
+                    Icons.person_outline_rounded,
                     color: Colors.white,
                     size: 19,
                   ),
                 ),
                 SizedBox(width: 9),
                 Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       'Responsable',
@@ -460,10 +296,11 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    SizedBox(height: 2),
                     Text(
                       'Gestionnaire flotte',
                       style: TextStyle(
-                        color: Colors.grey,
+                        color: secondaryText,
                         fontSize: 9,
                       ),
                     ),
@@ -477,92 +314,169 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
     );
   }
 
-  // ============================================================
-  // CONTENU
-  // ============================================================
-
-  Widget _buildContent() {
-    final liste = filteredChauffeurs;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Liste des chauffeurs',
-          style: TextStyle(
+  Widget _iconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onTap,
+    bool loading = false,
+  }) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onTap,
+        icon: loading
+            ? const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
             color: primaryColor,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
           ),
+        )
+            : Icon(
+          icon,
+          color: primaryColor,
+          size: 21,
         ),
+      ),
+    );
+  }
 
-        const SizedBox(height: 5),
-
-        const Text(
-          'Consultez les informations, affectations et performances des chauffeurs.',
-          style: TextStyle(
-            color: Colors.grey,
-            fontSize: 12,
-          ),
+  Widget _buildMainContent() {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: primaryColor,
         ),
+      );
+    }
 
-        const SizedBox(height: 25),
+    if (errorMessage != null && chauffeurs.isEmpty) {
+      return _buildErrorState();
+    }
 
-        _buildStatistics(),
+    return RefreshIndicator(
+      color: primaryColor,
+      onRefresh: () => _loadChauffeurs(refresh: true),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 850;
 
-        const SizedBox(height: 25),
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.all(compact ? 16 : 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildPageHeading(),
+                const SizedBox(height: 24),
+                _buildStatistics(),
+                const SizedBox(height: 28),
+                _buildListHeader(),
+                const SizedBox(height: 16),
+                _buildSearchAndFilters(compact),
+                const SizedBox(height: 18),
+                if (errorMessage != null) ...[
+                  _buildInlineError(),
+                  const SizedBox(height: 14),
+                ],
+                _buildDriverList(compact),
+                const SizedBox(height: 24),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
-        _buildSearch(),
+  // ============================================================
+  // TITRE
+  // ============================================================
 
-        const SizedBox(height: 20),
+  Widget _buildPageHeading() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 600;
 
-        Row(
+        final heading = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Chauffeurs',
               style: TextStyle(
                 color: primaryColor,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                fontSize: 27,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.7,
               ),
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 9,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: primaryColor.withValues(
-                  alpha: 0.08,
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '${liste.length}',
-                style: const TextStyle(
-                  color: primaryColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
+            const SizedBox(height: 7),
+            Text(
+              'Consultez les chauffeurs et leurs affectations.',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 12,
               ),
             ),
           ],
-        ),
+        );
 
-        const SizedBox(height: 15),
-
-        if (errorMessage != null)
-          _buildErrorState()
-        else if (liste.isEmpty)
-          _buildEmptyState()
-        else
-          ...liste.map(
-                (chauffeur) => _buildChauffeurCard(
-              chauffeur,
-            ),
+        final total = Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 13,
+            vertical: 10,
           ),
-      ],
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: borderColor),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.people_alt_outlined,
+                size: 18,
+                color: accentColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${chauffeurs.length} chauffeur${chauffeurs.length > 1 ? 's' : ''}',
+                style: const TextStyle(
+                  color: primaryColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              heading,
+              const SizedBox(height: 15),
+              total,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: heading),
+            total,
+          ],
+        );
+      },
     );
   }
 
@@ -571,187 +485,102 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
   // ============================================================
 
   Widget _buildStatistics() {
-    final total = chauffeurs.length;
-
-    final actifs = chauffeurs.where((e) {
-      final statut = _getStatut(e);
-
-      return statut == 'En service' ||
-          statut == 'En mission';
-    }).length;
-
-    final disponibles = chauffeurs.where((e) {
-      return _getStatut(e) == 'Disponible';
-    }).length;
-
-    final repos = chauffeurs.where((e) {
-      return _getStatut(e) == 'Repos';
-    }).length;
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 800) {
-          return Wrap(
-            spacing: 15,
-            runSpacing: 15,
-            children: [
-              SizedBox(
-                width: _responsiveStatWidth(
-                  constraints.maxWidth,
-                ),
-                child: _buildStatCard(
-                  icon: Icons.people_alt_outlined,
-                  value: '$total',
-                  label: 'Total chauffeurs',
-                  color: primaryColor,
-                ),
-              ),
-              SizedBox(
-                width: _responsiveStatWidth(
-                  constraints.maxWidth,
-                ),
-                child: _buildStatCard(
-                  icon: Icons.local_shipping_outlined,
-                  value: '$actifs',
-                  label: 'Actifs',
-                  color: accentColor,
-                ),
-              ),
-              SizedBox(
-                width: _responsiveStatWidth(
-                  constraints.maxWidth,
-                ),
-                child: _buildStatCard(
-                  icon: Icons.check_circle_outline,
-                  value: '$disponibles',
-                  label: 'Disponibles',
-                  color: warningColor,
-                ),
-              ),
-              SizedBox(
-                width: _responsiveStatWidth(
-                  constraints.maxWidth,
-                ),
-                child: _buildStatCard(
-                  icon: Icons.airline_seat_flat_outlined,
-                  value: '$repos',
-                  label: 'En repos',
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          );
-        }
+        final width = constraints.maxWidth;
+        final columns = width >= 1050
+            ? 4
+            : width >= 540
+            ? 2
+            : 1;
 
-        return Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.people_alt_outlined,
-                value: '$total',
-                label: 'Total chauffeurs',
-                color: primaryColor,
-              ),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.local_shipping_outlined,
-                value: '$actifs',
-                label: 'Actifs',
-                color: accentColor,
-              ),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.check_circle_outline,
-                value: '$disponibles',
-                label: 'Disponibles',
-                color: warningColor,
-              ),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: _buildStatCard(
-                icon: Icons.airline_seat_flat_outlined,
-                value: '$repos',
-                label: 'En repos',
-                color: Colors.grey,
-              ),
-            ),
-          ],
+        const gap = 14.0;
+        final cardWidth =
+            (width - (gap * (columns - 1))) / columns;
+
+        final stats = [
+          _StatData(
+            'Total chauffeurs',
+            chauffeurs.length,
+            Icons.groups_outlined,
+            primaryColor,
+          ),
+          _StatData(
+            'Disponibles',
+            _countStatus('Disponible'),
+            Icons.check_circle_outline_rounded,
+            accentColor,
+          ),
+          _StatData(
+            'En mission',
+            _countStatus('En mission'),
+            Icons.local_shipping_outlined,
+            warningColor,
+          ),
+          _StatData(
+            'En repos',
+            _countStatus('Repos'),
+            Icons.hotel_outlined,
+            secondaryText,
+          ),
+        ];
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: stats.map((stat) {
+            return SizedBox(
+              width: cardWidth,
+              child: _buildStatCard(stat),
+            );
+          }).toList(),
         );
       },
     );
   }
 
-  double _responsiveStatWidth(double width) {
-    if (width < 550) {
-      return width;
-    }
-
-    return (width - 15) / 2;
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
+  Widget _buildStatCard(_StatData stat) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: 0.04,
-            ),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
           Container(
-            width: 45,
-            height: 45,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: color.withValues(
-                alpha: 0.10,
-              ),
-              borderRadius: BorderRadius.circular(12),
+              color: stat.color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(13),
             ),
             child: Icon(
-              icon,
-              color: color,
+              stat.icon,
+              color: stat.color,
               size: 23,
             ),
           ),
-          const SizedBox(width: 13),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  value,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                  '${stat.value}',
+                  style: const TextStyle(
+                    color: primaryColor,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
-                  label,
+                  stat.label,
                   style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 10,
+                    color: secondaryText,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -763,588 +592,771 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
   }
 
   // ============================================================
-  // RECHERCHE
+  // EN-TÊTE DE LISTE
   // ============================================================
 
-  Widget _buildSearch() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-      ),
+  Widget _buildListHeader() {
+    final count = filteredChauffeurs.length;
+
+    return Row(
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Répertoire des chauffeurs',
+                style: TextStyle(
+                  color: primaryColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: 5),
+              Text(
+                'Identité, coordonnées et statut opérationnel',
+                style: TextStyle(
+                  color: secondaryText,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 11,
+            vertical: 7,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF1F8),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Text(
+            '$count résultat${count > 1 ? 's' : ''}',
+            style: const TextStyle(
+              color: primaryColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // RECHERCHE ET FILTRES
+  // ============================================================
+
+  Widget _buildSearchAndFilters(bool compact) {
+    final search = Container(
+      height: 46,
       decoration: BoxDecoration(
         color: Colors.white,
+        border: Border.all(color: borderColor),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey.shade200,
-        ),
       ),
       child: TextField(
         controller: searchController,
+        style: const TextStyle(
+          color: primaryColor,
+          fontSize: 12,
+        ),
         decoration: InputDecoration(
-          hintText:
-          'Rechercher par nom, matricule, camion, téléphone ou statut...',
+          hintText: 'Nom, matricule, téléphone ou camion...',
           hintStyle: const TextStyle(
-            color: Colors.grey,
-            fontSize: 12,
+            color: Color(0xFF9AA5B4),
+            fontSize: 11,
           ),
           prefixIcon: const Icon(
-            Icons.search,
-            color: primaryColor,
+            Icons.search_rounded,
+            color: secondaryText,
             size: 21,
           ),
-          suffixIcon:
-          searchController.text.isNotEmpty
-              ? IconButton(
-            onPressed: () {
-              searchController.clear();
-            },
+          suffixIcon: searchController.text.isEmpty
+              ? null
+              : IconButton(
+            tooltip: 'Effacer',
+            onPressed: searchController.clear,
             icon: const Icon(
-              Icons.clear,
-              size: 19,
-            ),
-          )
-              : null,
-          border: InputBorder.none,
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // CARTE CHAUFFEUR
-  // ============================================================
-
-  Widget _buildChauffeurCard(
-      Map<String, dynamic> chauffeur,
-      ) {
-    final statut = _getStatut(chauffeur);
-
-    final statusColor = _getStatusColor(
-      statut,
-    );
-
-    final missions = _getInt(
-      chauffeur,
-      [
-        'missions',
-        'missions_count',
-        'nombre_missions',
-      ],
-    );
-
-    final missionsTerminees = _getInt(
-      chauffeur,
-      [
-        'missionsTerminees',
-        'missions_terminees',
-        'missions_completed',
-        'missions_terminees_count',
-      ],
-    );
-
-    final signalements = _getInt(
-      chauffeur,
-      [
-        'signalements',
-        'signalements_count',
-        'nombre_signalements',
-      ],
-    );
-
-    final progression = missions == 0
-        ? 0.0
-        : (missionsTerminees / missions)
-        .clamp(0.0, 1.0);
-
-    return Container(
-      margin: const EdgeInsets.only(
-        bottom: 12,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: 0.035,
-            ),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          _openProfile(chauffeur);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 850) {
-                return _buildCompactDriverCard(
-                  chauffeur,
-                  statut,
-                  statusColor,
-                  missions,
-                  missionsTerminees,
-                  signalements,
-                  progression,
-                );
-              }
-
-              return _buildDesktopDriverCard(
-                chauffeur,
-                statut,
-                statusColor,
-                missions,
-                missionsTerminees,
-                signalements,
-                progression,
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // CARTE DESKTOP
-  // ============================================================
-
-  Widget _buildDesktopDriverCard(
-      Map<String, dynamic> chauffeur,
-      String statut,
-      Color statusColor,
-      int missions,
-      int missionsTerminees,
-      int signalements,
-      double progression,
-      ) {
-    return Row(
-      children: [
-        _buildDriverAvatar(chauffeur),
-
-        const SizedBox(width: 15),
-
-        Expanded(
-          flex: 3,
-          child: _buildDriverInfo(
-            chauffeur,
-          ),
-        ),
-
-        Expanded(
-          flex: 2,
-          child: _buildMissionInfo(
-            missions,
-            missionsTerminees,
-            progression,
-          ),
-        ),
-
-        Expanded(
-          flex: 2,
-          child: _buildSignalementInfo(
-            signalements,
-          ),
-        ),
-
-        SizedBox(
-          width: 120,
-          child: _buildStatusInfo(
-            statut,
-            statusColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // CARTE COMPACTE
-  // ============================================================
-
-  Widget _buildCompactDriverCard(
-      Map<String, dynamic> chauffeur,
-      String statut,
-      Color statusColor,
-      int missions,
-      int missionsTerminees,
-      int signalements,
-      double progression,
-      ) {
-    return Column(
-      crossAxisAlignment:
-      CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _buildDriverAvatar(chauffeur),
-
-            const SizedBox(width: 15),
-
-            Expanded(
-              child: _buildDriverInfo(
-                chauffeur,
-              ),
-            ),
-
-            const SizedBox(width: 10),
-
-            _buildStatusInfo(
-              statut,
-              statusColor,
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 18),
-
-        Row(
-          children: [
-            Expanded(
-              child: _buildMissionInfo(
-                missions,
-                missionsTerminees,
-                progression,
-              ),
-            ),
-
-            const SizedBox(width: 20),
-
-            Expanded(
-              child: _buildSignalementInfo(
-                signalements,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // INFORMATIONS CHAUFFEUR
-  // ============================================================
-
-  Widget _buildDriverInfo(
-      Map<String, dynamic> chauffeur,
-      ) {
-    final nom = _getNomComplet(chauffeur);
-
-    final id = _getString(
-      chauffeur,
-      [
-        'matricule',
-        'numero_matricule',
-        'id',
-      ],
-      fallback: '—',
-    );
-
-    final camion = _getCamion(chauffeur);
-
-    final telephone = _getString(
-      chauffeur,
-      [
-        'telephone',
-        'phone',
-        'tel',
-      ],
-      fallback: '—',
-    );
-
-    return Column(
-      crossAxisAlignment:
-      CrossAxisAlignment.start,
-      children: [
-        Text(
-          nom,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: primaryColor,
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 5),
-
-        Text(
-          '$id • $camion',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 10,
-          ),
-        ),
-
-        const SizedBox(height: 7),
-
-        Row(
-          children: [
-            Icon(
-              Icons.phone_outlined,
-              size: 13,
-              color: Colors.grey.shade500,
-            ),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                telephone,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 9,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // MISSIONS
-  // ============================================================
-
-  Widget _buildMissionInfo(
-      int missions,
-      int missionsTerminees,
-      double progression,
-      ) {
-    return Column(
-      crossAxisAlignment:
-      CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'MISSIONS',
-          style: TextStyle(
-            color: Colors.grey,
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 5),
-
-        Text(
-          '$missions',
-          style: const TextStyle(
-            color: primaryColor,
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 3),
-
-        Text(
-          '$missionsTerminees terminées',
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 9,
-          ),
-        ),
-
-        const SizedBox(height: 6),
-
-        SizedBox(
-          width: 120,
-          child: LinearProgressIndicator(
-            value: progression,
-            minHeight: 5,
-            backgroundColor: Colors.grey.shade200,
-            valueColor:
-            const AlwaysStoppedAnimation<Color>(
-              accentColor,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // SIGNALEMENTS
-  // ============================================================
-
-  Widget _buildSignalementInfo(
-      int signalements,
-      ) {
-    final color = signalements > 0
-        ? dangerColor
-        : accentColor;
-
-    return Column(
-      crossAxisAlignment:
-      CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'SIGNALEMENTS',
-          style: TextStyle(
-            color: Colors.grey,
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        Row(
-          children: [
-            Icon(
-              Icons.warning_amber_outlined,
-              color: color,
+              Icons.close_rounded,
               size: 18,
             ),
-
-            const SizedBox(width: 6),
-
-            Text(
-              '$signalements',
-              style: TextStyle(
-                color: color,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 14,
+          ),
         ),
-      ],
+      ),
     );
-  }
 
-  // ============================================================
-  // STATUT
-  // ============================================================
-
-  Widget _buildStatusInfo(
-      String statut,
-      Color statusColor,
-      ) {
-    return Column(
-      crossAxisAlignment:
-      CrossAxisAlignment.end,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 9,
-            vertical: 6,
-          ),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(
-              alpha: 0.10,
-            ),
-            borderRadius:
-            BorderRadius.circular(20),
-          ),
+    final filters = DropdownButtonFormField<String>(
+      value: selectedStatus,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: 'Statut',
+        labelStyle: const TextStyle(
+          color: secondaryText,
+          fontSize: 11,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 13,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: borderColor),
+        ),
+      ),
+      items: statusFilters.map((status) {
+        return DropdownMenuItem(
+          value: status,
           child: Text(
-            statut,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: statusColor,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+            status,
+            style: const TextStyle(
+              fontSize: 12,
+              color: primaryColor,
             ),
           ),
-        ),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() => selectedStatus = value);
+        }
+      },
+    );
 
-        const SizedBox(height: 12),
+    if (compact) {
+      return Column(
+        children: [
+          search,
+          const SizedBox(height: 12),
+          filters,
+        ],
+      );
+    }
 
-        const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Profil',
-              style: TextStyle(
-                color: primaryColor,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(width: 5),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: primaryColor,
-              size: 12,
-            ),
-          ],
-        ),
+    return Row(
+      children: [
+        Expanded(flex: 3, child: search),
+        const SizedBox(width: 14),
+        SizedBox(width: 200, child: filters),
       ],
     );
   }
 
   // ============================================================
-  // AVATAR
+  // LISTE : TABLEAU SUR GRAND ÉCRAN
   // ============================================================
 
-  Widget _buildDriverAvatar(
-      Map<String, dynamic> chauffeur,
-      ) {
-    final photo = _getString(
-      chauffeur,
-      [
-        'photo',
-        'photo_url',
-        'avatar',
-        'image',
-      ],
-    );
+  Widget _buildDriverList(bool compact) {
+    final list = filteredChauffeurs;
 
-    if (photo.isNotEmpty) {
-      return CircleAvatar(
-        radius: 29,
-        backgroundColor:
-        primaryColor.withValues(
-          alpha: 0.10,
-        ),
-        backgroundImage: NetworkImage(photo),
+    if (list.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    if (compact) {
+      return Column(
+        children: list.map((chauffeur) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildMobileDriverCard(chauffeur),
+          );
+        }).toList(),
       );
     }
 
     return Container(
-      width: 58,
-      height: 58,
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: primaryColor.withValues(
-          alpha: 0.10,
-        ),
-        shape: BoxShape.circle,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: borderColor),
       ),
-      child: const Icon(
-        Icons.person,
-        color: primaryColor,
-        size: 31,
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: 1050,
+          child: Column(
+            children: [
+              _buildTableHeader(),
+              ...List.generate(list.length, (index) {
+                final chauffeur = list[index];
+
+                return _buildTableRow(
+                  chauffeur,
+                  index,
+                  index == list.length - 1,
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableHeader() {
+    return Container(
+      height: 52,
+      color: const Color(0xFFF8FAFC),
+      padding: const EdgeInsets.symmetric(horizontal: 22),
+      child: const Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: _TableHeading('CHAUFFEUR'),
+          ),
+          Expanded(
+            flex: 2,
+            child: _TableHeading('MATRICULE'),
+          ),
+          Expanded(
+            flex: 2,
+            child: _TableHeading('TÉLÉPHONE'),
+          ),
+          Expanded(
+            flex: 2,
+            child: _TableHeading('CAMION'),
+          ),
+          SizedBox(
+            width: 130,
+            child: _TableHeading('STATUT'),
+          ),
+          SizedBox(
+            width: 75,
+            child: _TableHeading('ACTION'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableRow(
+      Map<String, dynamic> chauffeur,
+      int index,
+      bool last,
+      ) {
+    final status = _getStatut(chauffeur);
+    final color = _getStatusColor(status);
+
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => _openProfile(chauffeur),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 82),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 22,
+            vertical: 13,
+          ),
+          decoration: BoxDecoration(
+            border: last
+                ? null
+                : const Border(
+              bottom: BorderSide(color: borderColor),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 4,
+                child: Row(
+                  children: [
+                    _buildAvatar(chauffeur, radius: 21),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getNomComplet(chauffeur),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: primaryColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            _getEmail(chauffeur).isEmpty
+                                ? 'Chauffeur SiraFleet'
+                                : _getEmail(chauffeur),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: secondaryText,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  _getMatricule(chauffeur),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: primaryColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  _getTelephone(chauffeur).isEmpty
+                      ? 'Non renseigné'
+                      : _getTelephone(chauffeur),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: secondaryText,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.local_shipping_outlined,
+                      color: secondaryText,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        _getCamion(chauffeur),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: primaryColor,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 130,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _buildStatusBadge(status, color),
+                ),
+              ),
+              SizedBox(
+                width: 75,
+                child: IconButton(
+                  tooltip: 'Voir le profil',
+                  onPressed: () => _openProfile(chauffeur),
+                  icon: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: primaryColor,
+                    size: 19,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   // ============================================================
-// OUVERTURE PROFIL
-// ============================================================
+  // CARTE POUR PETITS ÉCRANS
+  // ============================================================
 
-  void _openProfile(
+  Widget _buildMobileDriverCard(
       Map<String, dynamic> chauffeur,
       ) {
-    final dynamic rawId = chauffeur['id'];
+    final status = _getStatut(chauffeur);
+    final color = _getStatusColor(status);
 
-    final int? chauffeurId = rawId is int
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15),
+        onTap: () => _openProfile(chauffeur),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: borderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _buildAvatar(chauffeur, radius: 25),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _getNomComplet(chauffeur),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: primaryColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          _getMatricule(chauffeur),
+                          style: const TextStyle(
+                            color: secondaryText,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: _buildStatusBadge(status, color),
+                  ),
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 15),
+                child: Divider(height: 1, color: borderColor),
+              ),
+              _buildMobileInfo(
+                Icons.phone_outlined,
+                'Téléphone',
+                _getTelephone(chauffeur).isEmpty
+                    ? 'Non renseigné'
+                    : _getTelephone(chauffeur),
+              ),
+              const SizedBox(height: 12),
+              _buildMobileInfo(
+                Icons.local_shipping_outlined,
+                'Camion affecté',
+                _getCamion(chauffeur),
+              ),
+              if (_getEmail(chauffeur).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildMobileInfo(
+                  Icons.email_outlined,
+                  'E-mail',
+                  _getEmail(chauffeur),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _openProfile(chauffeur),
+                  icon: const Icon(
+                    Icons.person_outline_rounded,
+                    size: 17,
+                  ),
+                  label: const Text('Voir le profil'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: primaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileInfo(
+      IconData icon,
+      String label,
+      String value,
+      ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: secondaryText, size: 17),
+        const SizedBox(width: 9),
+        SizedBox(
+          width: 105,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: secondaryText,
+              fontSize: 11,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: primaryColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // AVATAR ET BADGE
+  // ============================================================
+
+  Widget _buildAvatar(
+      Map<String, dynamic> chauffeur, {
+        double radius = 22,
+      }) {
+    String photo = _getString(
+      chauffeur,
+      ['photo_url', 'photo', 'avatar', 'image'],
+    );
+
+    if (photo.isEmpty && chauffeur['user'] is Map) {
+      photo = _getString(
+        Map<String, dynamic>.from(chauffeur['user'] as Map),
+        ['photo_url'],
+      );
+    }
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: const Color(0xFFEAF1F8),
+      child: Icon(
+        Icons.person_rounded,
+        color: primaryColor,
+        size: radius * 1.15,
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 7,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              status,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ERREURS ET LISTE VIDE
+  // ============================================================
+
+  Widget _buildInlineError() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F0),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: dangerColor,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              errorMessage ?? 'Erreur de chargement',
+              style: const TextStyle(
+                color: dangerColor,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _loadChauffeurs(),
+            child: const Text('Réessayer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              color: dangerColor,
+              size: 54,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Impossible de charger les chauffeurs',
+              style: TextStyle(
+                color: primaryColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              errorMessage ?? 'Une erreur est survenue.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: secondaryText,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => _loadChauffeurs(),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Réessayer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final searching = searchController.text.trim().isNotEmpty ||
+        selectedStatus != 'Tous';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 55,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            searching
+                ? Icons.search_off_rounded
+                : Icons.people_outline_rounded,
+            color: const Color(0xFFB0BAC7),
+            size: 52,
+          ),
+          const SizedBox(height: 14),
+          Text(
+            searching
+                ? 'Aucun résultat trouvé'
+                : 'Aucun chauffeur enregistré',
+            style: const TextStyle(
+              color: primaryColor,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            searching
+                ? 'Modifiez votre recherche ou choisissez un autre statut.'
+                : 'Les chauffeurs enregistrés apparaîtront ici.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: secondaryText,
+              fontSize: 11,
+            ),
+          ),
+          if (searching) ...[
+            const SizedBox(height: 15),
+            TextButton(
+              onPressed: () {
+                searchController.clear();
+                setState(() => selectedStatus = 'Tous');
+              },
+              child: const Text('Effacer les filtres'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // OUVERTURE DU PROFIL
+  // ============================================================
+
+  void _openProfile(Map<String, dynamic> chauffeur) {
+    final rawId = chauffeur['id'];
+    final chauffeurId = rawId is int
         ? rawId
         : int.tryParse(rawId?.toString() ?? '');
 
     if (chauffeurId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Impossible d\u2019ouvrir ce profil : identifiant manquant.'),
+          content: Text(
+            'Impossible d’ouvrir le profil : identifiant manquant.',
+          ),
         ),
       );
       return;
@@ -1361,148 +1373,7 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
   }
 
   // ============================================================
-  // ERREUR
-  // ============================================================
-
-  Widget _buildErrorState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        vertical: 60,
-        horizontal: 25,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-        BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.cloud_off_outlined,
-            color: dangerColor.withValues(
-              alpha: 0.7,
-            ),
-            size: 55,
-          ),
-
-          const SizedBox(height: 15),
-
-          const Text(
-            'Impossible de charger les chauffeurs',
-            style: TextStyle(
-              color: primaryColor,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 7),
-
-          Text(
-            errorMessage ??
-                'Une erreur est survenue.',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 11,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 20),
-
-          ElevatedButton.icon(
-            onPressed: () {
-              _loadChauffeurs();
-            },
-            icon: const Icon(
-              Icons.refresh,
-              size: 18,
-            ),
-            label: const Text(
-              'Réessayer',
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding:
-              const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 12,
-              ),
-              shape:
-              RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius.circular(10),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // ÉTAT VIDE
-  // ============================================================
-
-  Widget _buildEmptyState() {
-    final recherche =
-    searchController.text.trim();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        vertical: 70,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-        BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            recherche.isNotEmpty
-                ? Icons.person_search_outlined
-                : Icons.people_outline,
-            color: Colors.grey.shade400,
-            size: 60,
-          ),
-
-          const SizedBox(height: 15),
-
-          Text(
-            recherche.isNotEmpty
-                ? 'Aucun chauffeur trouvé'
-                : 'Aucun chauffeur enregistré',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-
-          const SizedBox(height: 5),
-
-          Text(
-            recherche.isNotEmpty
-                ? 'Essayez une autre recherche.'
-                : 'Les chauffeurs enregistrés apparaîtront ici.',
-            style: TextStyle(
-              color: Colors.grey.shade400,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // UTILITAIRE STRING
+  // EXTRACTION DES DONNÉES
   // ============================================================
 
   String _getString(
@@ -1513,218 +1384,136 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
     for (final key in keys) {
       final value = data[key];
 
-      if (value != null &&
-          value.toString().trim().isNotEmpty) {
-        return value.toString();
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString().trim();
       }
     }
 
     return fallback;
   }
 
-  // ============================================================
-  // UTILITAIRE INT
-  // ============================================================
-
-  int _getInt(
-      Map<String, dynamic> data,
-      List<String> keys, {
-        int fallback = 0,
-      }) {
-    for (final key in keys) {
-      final value = data[key];
-
-      if (value is int) {
-        return value;
-      }
-
-      if (value is double) {
-        return value.toInt();
-      }
-
-      if (value != null) {
-        final parsed =
-        int.tryParse(value.toString());
-
-        if (parsed != null) {
-          return parsed;
-        }
-      }
-    }
-
-    return fallback;
-  }
-
-  // ============================================================
-  // NOM COMPLET
-  // ============================================================
-
-  String _getNomComplet(
-      Map<String, dynamic> chauffeur,
-      ) {
-    // Cas :
-    // "nomComplet": "Mamadou Traoré"
-
-    final nomComplet = _getString(
+  String _getNomComplet(Map<String, dynamic> chauffeur) {
+    final direct = _getString(
       chauffeur,
-      [
-        'nomComplet',
-        'nom_complet',
-      ],
+      ['nomComplet', 'nom_complet'],
     );
 
-    if (nomComplet.isNotEmpty) {
-      return nomComplet;
-    }
+    if (direct.isNotEmpty) return direct;
 
-    // Cas :
-    // "nom": "Traoré",
-    // "prenom": "Mamadou"
-
-    final nom = _getString(
-      chauffeur,
-      [
-        'nom',
-        'last_name',
-        'lastname',
-      ],
-    );
+    final directName = _getString(chauffeur, ['name']);
+    if (directName.isNotEmpty) return directName;
 
     final prenom = _getString(
       chauffeur,
-      [
-        'prenom',
-        'first_name',
-        'firstname',
-      ],
+      ['prenom', 'first_name', 'firstname'],
+    );
+    final nom = _getString(
+      chauffeur,
+      ['nom', 'last_name', 'lastname'],
     );
 
-    final resultat =
-    '$prenom $nom'.trim();
-
-    if (resultat.isNotEmpty) {
-      return resultat;
-    }
-
-    // Cas :
-    // "user": {...}
+    final result = '$prenom $nom'.trim();
+    if (result.isNotEmpty) return result;
 
     final user = chauffeur['user'];
 
     if (user is Map) {
-      final userMap =
-      Map<String, dynamic>.from(user);
+      final userMap = Map<String, dynamic>.from(user);
 
-      final userNomComplet =
-      _getString(
+      final userName = _getString(
         userMap,
-        [
-          'nomComplet',
-          'nom_complet',
-          'name',
-        ],
+        ['nomComplet', 'nom_complet', 'name'],
       );
 
-      if (userNomComplet.isNotEmpty) {
-        return userNomComplet;
-      }
-
-      final userNom = _getString(
-        userMap,
-        [
-          'nom',
-          'last_name',
-          'lastname',
-        ],
-      );
+      if (userName.isNotEmpty) return userName;
 
       final userPrenom = _getString(
         userMap,
-        [
-          'prenom',
-          'first_name',
-          'firstname',
-        ],
+        ['prenom', 'first_name', 'firstname'],
+      );
+      final userNom = _getString(
+        userMap,
+        ['nom', 'last_name', 'lastname'],
       );
 
-      final userResultat =
-      '$userPrenom $userNom'.trim();
-
-      if (userResultat.isNotEmpty) {
-        return userResultat;
-      }
+      final userResult = '$userPrenom $userNom'.trim();
+      if (userResult.isNotEmpty) return userResult;
     }
 
     return 'Chauffeur';
   }
 
-  // ============================================================
-  // CAMION
-  // ============================================================
-
-  String _getCamion(
-      Map<String, dynamic> chauffeur,
-      ) {
-    final camionDirect = _getString(
+  String _getMatricule(Map<String, dynamic> chauffeur) {
+    return _getString(
       chauffeur,
-      [
-        'camion_matricule',
-        'camion_id',
-        'vehicule',
-        'vehicle',
-      ],
+      ['matricule', 'numero_matricule', 'id'],
+      fallback: '—',
+    );
+  }
+
+  String _getTelephone(Map<String, dynamic> chauffeur) {
+    final direct = _getString(
+      chauffeur,
+      ['telephone','num_tel', 'phone', 'tel'],
     );
 
-    if (camionDirect.isNotEmpty) {
-      return camionDirect;
+    if (direct.isNotEmpty) return direct;
+
+    final user = chauffeur['user'];
+    if (user is Map) {
+      return _getString(
+        Map<String, dynamic>.from(user),
+        ['num_tel', 'telephone', 'phone', 'tel'],
+      );
     }
+
+    return '';
+  }
+
+  String _getEmail(Map<String, dynamic> chauffeur) {
+    final direct = _getString(chauffeur, ['email']);
+    if (direct.isNotEmpty) return direct;
+
+    final user = chauffeur['user'];
+    if (user is Map) {
+      return _getString(
+        Map<String, dynamic>.from(user),
+        ['email'],
+      );
+    }
+
+    return '';
+  }
+
+  String _getCamion(Map<String, dynamic> chauffeur) {
+    final direct = _getString(
+      chauffeur,
+      ['camion_matricule', 'vehicule', 'vehicle'],
+    );
+
+    if (direct.isNotEmpty) return direct;
 
     final camion = chauffeur['camion'];
 
     if (camion is Map) {
-      final camionMap =
-      Map<String, dynamic>.from(camion);
-
       final matricule = _getString(
-        camionMap,
-        [
-          'matricule',
-          'immatriculation',
-          'numero',
-          'id',
-        ],
+        Map<String, dynamic>.from(camion),
+        ['matricule', 'immatriculation', 'numero'],
       );
 
-      if (matricule.isNotEmpty) {
-        return matricule;
-      }
+      if (matricule.isNotEmpty) return matricule;
     }
 
     return 'Aucun camion';
   }
 
-  // ============================================================
-  // STATUT
-  // ============================================================
-
-  String _getStatut(
-      Map<String, dynamic> chauffeur,
-      ) {
-    final statut = _getString(
+  String _getStatut(Map<String, dynamic> chauffeur) {
+    final raw = _getString(
       chauffeur,
-      [
-        'statut',
-        'status',
-        'etat',
-        'state',
-      ],
-    );
+      ['statut', 'status', 'etat', 'state'],
+    ).toLowerCase().trim();
 
-    if (statut.isEmpty) {
-      return 'Disponible';
-    }
-
-    switch (statut.toLowerCase().trim()) {
+    switch (raw) {
       case 'active':
       case 'actif':
       case 'en service':
@@ -1743,42 +1532,69 @@ class _ChauffeursScreenState extends State<ChauffeursScreen> {
         return 'Repos';
 
       default:
-        return statut;
+        return raw.isEmpty ? 'Non défini' : raw;
     }
   }
 
-  // ============================================================
-  // COULEUR STATUT
-  // ============================================================
-
-  Color _getStatusColor(
-      String statut,
-      ) {
-    switch (statut) {
+  Color _getStatusColor(String status) {
+    switch (status) {
       case 'En mission':
         return warningColor;
-
       case 'En service':
         return accentColor;
-
       case 'Disponible':
         return primaryColor;
-
       case 'Repos':
-        return Colors.grey;
-
+        return secondaryText;
       default:
-        return primaryColor;
+        return dangerColor;
     }
   }
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
 
   @override
   void dispose() {
+    searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     super.dispose();
+  }
+}
+
+// ============================================================
+// COMPOSANTS SIMPLES
+// ============================================================
+
+class _StatData {
+  final String label;
+  final int value;
+  final IconData icon;
+  final Color color;
+
+  const _StatData(
+      this.label,
+      this.value,
+      this.icon,
+      this.color,
+      );
+}
+
+class _TableHeading extends StatelessWidget {
+  final String label;
+
+  const _TableHeading(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF8491A3),
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
   }
 }
