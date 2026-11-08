@@ -16,6 +16,7 @@ import '../screens/admin/equipements_screen.dart';
 import '../screens/admin/alertes_systeme_screen.dart';
 import '../screens/admin/rapports_screen.dart';
 import '../screens/admin/parametres_screen.dart';
+import '../screens/responsable/suivi_gps_screen.dart';
 
 class SidebarAdmin extends StatelessWidget {
   final int selectedIndex;
@@ -116,6 +117,16 @@ class SidebarAdmin extends StatelessWidget {
                       index: 2,
                       builder: (_) =>
                       const CamionsAdminScreen(),
+                    ),
+
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.map_outlined,
+                      activeIcon: Icons.map,
+                      title: 'Suivi GPS',
+                      index: 3,
+                      builder: (_) =>
+                      const SuiviGpsScreen(),
                     ),
 
                     // RÔLES & PERMISSIONS

@@ -46,7 +46,6 @@ dependencies:
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
   record: ^6.1.1
-  flutter_polyline_points: ^2.1.0
   audioplayers: ^6.5.0
   image_picker: ^1.2.3
   geolocator: ^14.0.2
@@ -61,10 +60,6 @@ dependencies:
   mqtt_client: ^10.2.0
   excel: ^4.0.6
   file_saver: ^0.2.14
-
-
-
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

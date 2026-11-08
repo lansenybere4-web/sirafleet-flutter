@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
+import 'package:sirafleet/widgets/sira_map.dart';
 
 /// Sélecteur de destination pro : recherche d'adresse (Nominatim)
 /// + ajustement fin en tapant/glissant le marqueur sur la carte OSM.
@@ -276,29 +277,21 @@ class _DestinationPickerState extends State<DestinationPicker> {
             border: Border.all(color: Colors.grey.shade300),
           ),
           clipBehavior: Clip.antiAlias,
-          child: FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _selectedPosition ?? _bamakoCenter,
-              initialZoom: _selectedPosition != null ? 14 : 12,
-              onTap: _onMapTapped,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.sirafleet.app',
-              ),
+          child: SiraMap(
+            controller: _mapController,
+            initialCenter: _selectedPosition ?? _bamakoCenter,
+            initialZoom: _selectedPosition != null ? 14 : 12,
+            initialStyle: SiraMapStyle.plan,
+            onTap: _onMapTapped,
+            markers: [
               if (_selectedPosition != null)
-                MarkerLayer(markers: [
-                  Marker(
-                    point: _selectedPosition!,
-                    width: 50,
-                    height: 50,
-                    child: const Icon(Icons.location_on,
-                        color: Color(0xFFE63946), size: 42),
-                  ),
-                ]),
+                Marker(
+                  point: _selectedPosition!,
+                  width: 50,
+                  height: 50,
+                  child: const Icon(Icons.location_on,
+                      color: Color(0xFFE63946), size: 42),
+                ),
             ],
           ),
         ),

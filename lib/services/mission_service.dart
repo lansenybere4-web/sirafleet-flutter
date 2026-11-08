@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/constants.dart';
@@ -239,22 +240,24 @@ class MissionService {
   // DÉMARRER UNE MISSION
   // ============================================================
 
-  Future<Mission> startMission(
-      int id, {
-        String? token,
-      }) async {
-    final Uri uri = Uri.parse(
-      '$_baseUrl/missions/$id/start',
-    );
+
+  Future<Mission> startMission(int id, {String? token}) async {
+  final Uri uri = Uri.parse('$_baseUrl/missions/$id/start');
+
+  // Position du téléphone = point de départ de l'itinéraire.
+  // Si elle est indisponible, le serveur se rabat sur la dernière position MQTT.
+  Map<String, double> position = {};
+  try {
+    final p = await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 6));
+      position = {'latitude': p.latitude, 'longitude': p.longitude};
+    } catch (_) {}
 
     try {
-      final response = await http
-          .post(
-        uri,
-        headers: _headers(token),
-      )
-          .timeout(_timeout);
-
+     final response = await http
+      .post(uri, headers: _headers(token), body: jsonEncode(position))
+      .timeout(const Duration(seconds: 25));
       _checkResponse(response);
 
       final dynamic decoded = _decodeJson(response);

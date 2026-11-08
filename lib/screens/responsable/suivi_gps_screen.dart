@@ -8,7 +8,11 @@ import 'package:provider/provider.dart';
 import '../../models/gps_position_model.dart';
 import '../../services/gps_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/sira_map.dart';
 import 'dashboard_screen.dart';
+import '../../services/trajet_service.dart';
+import '../../models/trajet_reel_model.dart';
+import '../../widgets/route_layers.dart';
 
 import '../../services/mission_service.dart';
 import '../../models/mission.dart';
@@ -79,6 +83,13 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
 
   Timer? _refreshTimer;
 
+  final TrajetService _trajetService = TrajetService();
+  TrajetReel? _trajetReel;
+  int? _selectedMissionId;
+  bool _showPrevu = true;
+  bool _showReel = true;
+  Timer? _reelTimer;
+
   // ============================================================
   // INIT
   // ============================================================
@@ -89,11 +100,16 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
 
     _loadFleetPositions();
 
+    // Positions de la flotte toutes les 10 s
     _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       _loadFleetPositions(silent: true);
     });
-  }
 
+    // Trajet réel (recalage OSRM) toutes les 60 s
+    _reelTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      _loadTrajetReel();
+    });
+  }
   // ============================================================
   // DISPOSE
   // ============================================================
@@ -101,6 +117,7 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _reelTimer?.cancel();
     super.dispose();
   }
 
@@ -171,11 +188,16 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
       setState(() {
         _selectedRoute = [];
         _selectedDestination = null;
+        _trajetReel = null;
+        _selectedMissionId = null;
       });
       return;
     }
 
-    setState(() => _loadingRoute = true);
+    setState(() {
+      _loadingRoute = true;
+      _trajetReel = null;
+    });
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -190,12 +212,14 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
         setState(() {
           _selectedRoute = [];
           _selectedDestination = null;
+          _selectedMissionId = null;
           _loadingRoute = false;
         });
         return;
       }
 
       setState(() {
+        _selectedMissionId = mission.id;
         _selectedRoute = mission.itineraire;
         _selectedDestination =
         (mission.destinationLat != null && mission.destinationLng != null)
@@ -203,14 +227,34 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
             : null;
         _loadingRoute = false;
       });
+
+      await _loadTrajetReel();
     } catch (_) {
       if (!mounted) return;
 
       setState(() {
         _selectedRoute = [];
         _selectedDestination = null;
+        _selectedMissionId = null;
         _loadingRoute = false;
       });
+    }
+  }
+
+  Future<void> _loadTrajetReel() async {
+    final int? id = _selectedMissionId;
+    if (id == null) return;
+
+    try {
+      final token = Provider.of<AuthProvider>(context, listen: false).token;
+      if (token == null || token.isEmpty) return;
+
+      final reel = await _trajetService.getTrajetReel(id, token: token);
+
+      if (!mounted || _selectedMissionId != id) return;
+      setState(() => _trajetReel = reel);
+    } catch (e) {
+      debugPrint('Trajet réel : $e');
     }
   }
 
@@ -742,111 +786,33 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
           padding: const EdgeInsets.all(10),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _bamakoCenter,
-                initialZoom: 13,
-                minZoom: 4,
-                maxZoom: 18,
-                onMapReady: () => _mapReady = true,
+            child: SiraMap(
+              controller: _mapController,
+              initialCenter: _bamakoCenter,
+              initialZoom: 13,
+              initialStyle: SiraMapStyle.plan,
+              onMapReady: () => _mapReady = true,
+              extraLayers: RouteLayers.build(
+                prevu: _selectedRoute,
+                reel: _trajetReel,
+                showPrevu: _showPrevu,
+                showReel: _showReel,
               ),
-              children: [
-                // ------------------------------------------------
-                // OPEN STREET MAP
-                // ------------------------------------------------
-
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.sirafleet.app',
-                ),
-
-                // ------------------------------------------------
-                // ITINÉRAIRE DU CAMION SÉLECTIONNÉ
-                // ------------------------------------------------
-
-                if (_selectedRoute.isNotEmpty)
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(
-                        points: _selectedRoute,
-                        strokeWidth: 5,
-                        color: primary.withValues(alpha: 0.85),
-                      ),
-                    ],
-                  ),
-
-                // ------------------------------------------------
-                // MARQUEUR DESTINATION
-                // ------------------------------------------------
-
+              markers: [
                 if (_selectedDestination != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _selectedDestination!,
-                        width: 46,
-                        height: 46,
-                        child: const Icon(Icons.flag_circle, color: dangerColor, size: 40),
-                      ),
-                    ],
+                  Marker(
+                    point: _selectedDestination!,
+                    width: 46,
+                    height: 46,
+                    child: const Icon(Icons.flag_circle, color: dangerColor, size: 40),
                   ),
-
-                // ------------------------------------------------
-                // MARQUEURS CAMIONS
-                // ------------------------------------------------
-
-                MarkerLayer(
-                  markers: positions.map((position) {
-                    final color = _statusColor(position.camionStatut);
-                    final selected = _selectedPosition?.camionId == position.camionId;
-
-                    return Marker(
-                      point: LatLng(position.latitude, position.longitude),
-                      width: 110,
-                      height: 80,
-                      child: GestureDetector(
-                        onTap: () => _selectPosition(position, zoom: 15),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              constraints: const BoxConstraints(maxWidth: 105),
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: selected ? primary : Colors.white,
-                                borderRadius: BorderRadius.circular(5),
-                                boxShadow: const [
-                                  BoxShadow(color: Colors.black26, blurRadius: 5),
-                                ],
-                              ),
-                              child: Text(
-                                position.matricule ?? 'Camion',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: selected ? Colors.white : color,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            Icon(
-                              Icons.local_shipping_rounded,
-                              color: color,
-                              size: selected ? 38 : 32,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                ...positions.map(_buildTruckMarker),
               ],
             ),
           ),
         ),
+
+
 
         // ========================================================
         // LEGENDE
@@ -901,6 +867,46 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
     );
   }
 
+  Marker _buildTruckMarker(PositionGpsModel position) {
+    final color = _statusColor(position.camionStatut);
+    final selected = _selectedPosition?.camionId == position.camionId;
+
+    return Marker(
+      point: LatLng(position.latitude, position.longitude),
+      width: 110,
+      height: 80,
+      child: GestureDetector(
+        onTap: () => _selectPosition(position, zoom: 15),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              constraints: const BoxConstraints(maxWidth: 105),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: selected ? primary : Colors.white,
+                borderRadius: BorderRadius.circular(5),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 5)],
+              ),
+              child: Text(
+                position.matricule ?? 'Camion',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: selected ? Colors.white : color,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Icon(Icons.local_shipping_rounded, color: color, size: selected ? 38 : 32),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ============================================================
   // LEGENDE
   // ============================================================
@@ -948,7 +954,13 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
                 ),
                 IconButton(
                   tooltip: 'Fermer',
-                  onPressed: () => setState(() => _selectedPosition = null),
+                  onPressed: () => setState(() {
+                    _selectedPosition = null;
+                    _selectedRoute = [];
+                    _selectedDestination = null;
+                    _trajetReel = null;
+                    _selectedMissionId = null;
+                  }),
                   icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 18),
                 ),
               ],
@@ -1035,6 +1047,9 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
                       ),
                     ),
 
+                  if (_selectedRoute.isNotEmpty || _trajetReel?.aDesDonnees == true)
+                    _buildRouteControls(),
+
                   const SizedBox(height: 25),
 
                   _detailRow('Chauffeur', position.chauffeurNom ?? 'Non renseigné',
@@ -1092,6 +1107,63 @@ class _SuiviGpsScreenState extends State<SuiviGpsScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteControls() {
+    final reel = _trajetReel;
+    final ecart = reel?.ecart;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        children: [
+          Wrap(
+            spacing: 8,
+            children: [
+              FilterChip(
+                label: const Text('Prévu', style: TextStyle(fontSize: 10)),
+                selected: _showPrevu,
+                selectedColor: RouteLayers.prevuColor.withValues(alpha: 0.2),
+                onSelected: (v) => setState(() => _showPrevu = v),
+              ),
+              FilterChip(
+                label: const Text('Réel', style: TextStyle(fontSize: 10)),
+                selected: _showReel,
+                selectedColor: RouteLayers.reelColor.withValues(alpha: 0.2),
+                onSelected: (v) => setState(() => _showReel = v),
+              ),
+            ],
+          ),
+          if (reel != null && reel.aDesDonnees && !reel.matchOk)
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text(
+                'Tracé GPS brut (recalage routier impossible)',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 9, color: Colors.grey),
+              ),
+            ),
+          if (reel != null && reel.matchOk)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '${reel.distanceKm.toStringAsFixed(1)} km parcourus',
+                style: const TextStyle(fontSize: 10, color: textSecondary),
+              ),
+            ),
+          if (ecart != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Écart max ${ecart.maxM} m · moyen ${ecart.moyenM} m · '
+                    '${ecart.pourcentageHors}% hors tracé',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 9, color: textSecondary),
+              ),
+            ),
         ],
       ),
     );
